@@ -201,6 +201,15 @@ h2.section { font-size:1.0625rem; font-weight:600; margin:24px 0 10px; color:var
   max-width:var(--maxw); margin-inline:auto; z-index:20;
 }
 .bottomnav[hidden] { display:none; }
+
+/* ---- audio / pronunciation ---- */
+.nl-row { display:flex; align-items:center; justify-content:center; gap:10px; }
+.speak { border:none; background:var(--c-surface-alt); color:var(--c-primary); width:42px; height:42px;
+  min-width:42px; border-radius:var(--r-pill); font-size:1.15rem; cursor:pointer; line-height:1;
+  display:inline-flex; align-items:center; justify-content:center; padding:0; }
+.speak:active { background:var(--c-border); transform:scale(.94); }
+.speak.speaking { background:var(--c-accent-soft); color:var(--c-accent-text); }
+.prompt .word .speak { margin-left:8px; vertical-align:middle; width:36px; height:36px; min-width:36px; font-size:1rem; }
 .navbtn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
   background:none; border:none; cursor:pointer; color:var(--t-3); font-family:var(--font); padding-top:6px; }
 .navbtn .navicon { font-size:1.2rem; filter:grayscale(1) opacity(.6); }
