@@ -11,6 +11,22 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function announce(msg) { $live.textContent = msg; }
   function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+  let _voices = [];
+  function dutchVoice() {
+    if ((!_voices || !_voices.length) && 'speechSynthesis' in window) _voices = speechSynthesis.getVoices();
+    return (_voices || []).find(v => /^nl/i.test(v.lang)) || null;
+  }
+  function speak(text) {
+    if (!('speechSynthesis' in window) || !text) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'nl-NL'; u.rate = 0.92;
+      const v = dutchVoice(); if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function speakBtn(text) { return `<button class="speak" type="button" data-speak="${esc(text)}" aria-label="Listen to pronunciation">🔊</button>`; }
   function save() { W.Store.saveCards(S.cards); W.Store.saveUser(S.user); }
   function ensureCard(id) { if (!S.cards[id]) S.cards[id] = W.newCard(id, S.today); return S.cards[id]; }
 
@@ -30,6 +46,15 @@
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
     $nav.querySelectorAll('.navbtn').forEach(b => b.addEventListener('click', () => go(b.dataset.nav)));
+
+    // delegated audio: any element with data-speak pronounces its Dutch text on tap
+    $app.addEventListener('click', e => {
+      const b = e.target.closest('[data-speak]');
+      if (b) { e.stopPropagation(); speak(b.getAttribute('data-speak')); }
+    });
+    if ('speechSynthesis' in window) {
+      try { _voices = speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => { _voices = speechSynthesis.getVoices(); }; } catch (e) {}
+    }
 
     if (!S.user.onboarded) { startSession(); }   // drop straight into learning on first open
     else { go('today'); }
@@ -148,7 +173,7 @@
   function wordCardInner(w) {
     if (w.type === 'verb') {
       return `<span class="badge verb">verb</span>
-        <div class="nl" lang="nl">${esc(w.nl)}</div>
+        <div class="nl-row"><div class="nl" lang="nl">${esc(w.nl)}</div>${speakBtn(w.nl)}</div>
         <div class="verbforms">
           <div class="vf"><span class="lbl">infinitive</span><span lang="nl">${esc(w.nl)}</span></div>
           <div class="vf"><span class="lbl">past</span><span lang="nl">${esc(w.pastSimple)}</span></div>
@@ -159,11 +184,13 @@
     if (w.type === 'noun') {
       const cls = w.article === 'het' ? 'het' : 'de';
       const pl = (w.plural && w.plural !== '—') ? `<div class="plural">pl. ${esc(w.plural)}</div>` : '';
+      const say = (w.article ? w.article + ' ' : '') + w.nl;
       return `<span class="badge ${cls}">${esc(w.article)}</span>
-        <div class="nl" lang="nl">${esc(w.nl)}</div>${pl}
+        <div class="nl-row"><div class="nl" lang="nl">${esc(w.nl)}</div>${speakBtn(say)}</div>${pl}
         <div class="en" lang="en">${esc(w.en)}</div>`;
     }
-    return `<div class="nl" lang="nl">${esc(w.nl)}</div><div class="en" lang="en">${esc(w.en)}</div>`;
+    return `<div class="nl-row"><div class="nl" lang="nl">${esc(w.nl)}</div>${speakBtn(w.nl)}</div>
+      <div class="en" lang="en">${esc(w.en)}</div>`;
   }
 
   // ---------- SETTINGS ----------
@@ -273,7 +300,7 @@
     const mc = W.generateMC(w, S.words, dir);
     const ask = dir === 'NL_EN' ? 'What does this mean?' : 'How do you say this in Dutch?';
     const promptHTML = dir === 'NL_EN'
-      ? `<div class="word" lang="nl">${esc(mc.prompt)}</div>`
+      ? `<div class="word" lang="nl">${esc(mc.prompt)}${speakBtn(mc.prompt)}</div>`
       : `<div class="word" lang="en">${esc(mc.prompt)}</div>`;
     const opts = mc.options.map((o, i) =>
       `<button class="opt" data-i="${i}" lang="${dir === 'NL_EN' ? 'en' : 'nl'}">${esc(o.text)}</button>`).join('');
