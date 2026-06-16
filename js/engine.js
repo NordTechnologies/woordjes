@@ -112,7 +112,11 @@
   }
 
   // words: array of content; returns ordered array of {wordId, isNew}
-  function buildSession(words, cards, user, today) {
+  // opts.force: ignore the daily new-word cap + backlog pause, and when no new words
+  // remain, top up the session with existing cards (lowest box first, learned last)
+  // so "Learn new words / Practice" always has something to do.
+  function buildSession(words, cards, user, today, opts) {
+    const force = !!(opts && opts.force);
     const due = words
       .map(w => cards[w.id])
       .filter(c => isDue(c, today))
@@ -123,18 +127,30 @@
     const reviews = due.slice(0, C.SESSION_SIZE);
     let queue = reviews.slice();
 
-    const remaining = C.SESSION_SIZE - queue.length;
+    let remaining = C.SESSION_SIZE - queue.length;
     if (remaining > 0) {
-      const nAllowed = Math.min(remaining, allowedNewToday(cards, user, today, due.length));
+      const nAllowed = force ? remaining : Math.min(remaining, allowedNewToday(cards, user, today, due.length));
       if (nAllowed > 0) {
         const unseen = words
           .filter(w => !cards[w.id])
           .sort((a, b) => a.listOrder - b.listOrder)
           .slice(0, nAllowed)
           .map(w => ({ wordId: w.id, isNew: true }));
-        // interleave new words ~every 3rd item rather than dumping at the end
-        queue = interleave(reviews, unseen);
+        queue = interleave(reviews, unseen); // interleave new words rather than dumping at the end
       }
+    }
+
+    // Forced "keep going": if still short (no due, cap-free, and all words already seen),
+    // fill with existing cards for extra review — lowest box first, recently learned included.
+    if (force && queue.length < C.SESSION_SIZE) {
+      const inQueue = new Set(queue.map(i => i.wordId));
+      const extra = words
+        .map(w => cards[w.id])
+        .filter(c => c && !inQueue.has(c.wordId))
+        .sort((a, b) => a.box - b.box)
+        .slice(0, C.SESSION_SIZE - queue.length)
+        .map(c => ({ wordId: c.wordId, isNew: false, extra: true }));
+      queue = queue.concat(extra);
     }
     return queue;
   }
