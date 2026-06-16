@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+  <meta name="theme-color" content="#1E3A5F" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Woordjes" />
+  <title>Woordjes — Learn Dutch</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+  <div id="app" class="app"><!-- screens render here --></div>
+
+  <nav id="bottomnav" class="bottomnav" hidden>
+    <button class="navbtn" data-nav="today" aria-label="Today">
+      <span class="navicon">☀️</span><span class="navlabel">Today</span>
+    </button>
+    <button class="navbtn" data-nav="topics" aria-label="Topics">
+      <span class="navicon">📚</span><span class="navlabel">Topics</span>
+    </button>
+    <button class="navbtn" data-nav="learned" aria-label="Learned">
+      <span class="navicon">🏆</span><span class="navlabel">Learned</span>
+    </button>
+  </nav>
+
+  <div id="live" class="visually-hidden" aria-live="polite"></div>
+
+  <script src="./js/engine.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
