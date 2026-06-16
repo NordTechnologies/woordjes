@@ -108,6 +108,29 @@ const session = W.buildSession(words, fresh, u3, '2026-06-17');
 ok('session non-empty', session.length > 0);
 ok('session new words <= cap', session.filter(i => i.isNew).length <= W.C.NEW_WORDS_PER_DAY);
 
+// ---- forced session (the "Learn new words" button) ----
+const uCap = W.Store.loadUser(); uCap.lastNewDay = '2026-06-17'; uCap.newCountToday = 7;
+eq('normal session empty when capped & nothing due', W.buildSession(words, {}, uCap, '2026-06-17').length, 0);
+const forced = W.buildSession(words, {}, uCap, '2026-06-17', { force: true });
+ok('forced session ignores daily cap', forced.length > 0);
+ok('forced session pulls new words', forced.some(i => i.isNew));
+// forced fill from existing when everything already seen
+const allSeen = {};
+words.forEach(w => { allSeen[w.id] = W.newCard(w.id, '2026-06-01'); allSeen[w.id].box = 3; allSeen[w.id].nextDue = '2026-12-01'; });
+const forced2 = W.buildSession(words, allSeen, W.Store.loadUser(), '2026-06-17', { force: true });
+eq('forced fills from existing when all seen', forced2.length, W.C.SESSION_SIZE);
+ok('forced extra are review (not new)', forced2.every(i => !i.isNew));
+
+// ---- expanded data integrity ----
+const ids = new Set(words.map(w => w.id));
+eq('all word ids unique', ids.size, words.length);
+ok('expanded to >= 170 words', words.length >= 170);
+ok('every word has nl+en', words.every(w => w.nl && w.en));
+ok('every noun has article+plural', words.filter(w => w.type === 'noun').every(w => (w.article === 'de' || w.article === 'het') && w.plural));
+ok('every verb has 3 forms', words.filter(w => w.type === 'verb').every(w => w.pastSimple && w.perfect));
+const topicIds = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, '../public/data/words.json'), 'utf8')).topics.map(t => t.id));
+ok('every word maps to a real topic', words.every(w => topicIds.has(w.topic)));
+
 // ---- summary ----
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

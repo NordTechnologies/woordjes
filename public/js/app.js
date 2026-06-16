@@ -89,7 +89,8 @@
       <h2 class="section">Your topics</h2>
       <div class="list">${topicRows}</div>`;
 
-    document.getElementById('startBtn').addEventListener('click', () => startSession());
+    const forceMode = shown === 0; // when nothing is due, the button means "learn new / practice"
+    document.getElementById('startBtn').addEventListener('click', () => startSession({ force: forceMode }));
     document.getElementById('settingsBtn').addEventListener('click', renderSettings);
     $app.querySelectorAll('[data-topic]').forEach(b => b.addEventListener('click', () => renderTopicDetail(b.dataset.topic)));
   }
@@ -132,7 +133,7 @@
       <h2 class="section">All words (${tw.length})</h2>
       <div class="list">${rows}</div>`;
     document.getElementById('back').addEventListener('click', () => go('topics'));
-    document.getElementById('trainTopic').addEventListener('click', () => startSession(tid));
+    document.getElementById('trainTopic').addEventListener('click', () => startSession({ topic: tid }));
     $app.querySelectorAll('[data-word]').forEach(b => b.addEventListener('click', () => renderBrowseCard(+b.dataset.word, tid)));
   }
 
@@ -196,7 +197,9 @@
   }
 
   // ---------- TRAINING SESSION ----------
-  function startSession(topicFilter) {
+  function startSession(opts) {
+    opts = opts || {};
+    const topicFilter = opts.topic || null;
     let queue;
     if (topicFilter) {
       // train a specific topic: due cards of topic first, then unseen of topic (respect overall daily cap loosely)
@@ -209,7 +212,7 @@
         queue = tw.filter(w => S.cards[w.id]).slice(0, W.C.SESSION_SIZE).map(w => ({ wordId: w.id, isNew: false }));
       }
     } else {
-      queue = W.buildSession(S.words, S.cards, S.user, S.today);
+      queue = W.buildSession(S.words, S.cards, S.user, S.today, { force: !!opts.force });
     }
     if (!queue.length) { go('today'); return; }
     S.session = {
