@@ -192,15 +192,17 @@
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
   }
-  // Dutch answers always carry the article (de/het) so the learner absorbs gender every time.
-  function answerText(word, dir) {
+  // Dutch answers carry the article (de/het) so the learner absorbs gender — EXCEPT when
+  // bare=true (the de/het is about to be tested separately, so we must not give it away).
+  function answerText(word, dir, bare) {
     if (dir === 'NL_EN') return word.en;
-    return (word.type === 'noun' && word.article) ? (word.article + ' ' + word.nl) : word.nl;
+    return (!bare && word.type === 'noun' && word.article) ? (word.article + ' ' + word.nl) : word.nl;
   }
 
   // dir: 'NL_EN' (prompt nl, answers en) or 'EN_NL' (prompt en, answers nl)
-  function generateMC(target, words, dir) {
-    const correctText = answerText(target, dir);
+  // bare: when true, noun options omit the article (used when a de/het follow-up will be asked)
+  function generateMC(target, words, dir, bare) {
+    const correctText = answerText(target, dir, bare);
     const sameTypeTopic = words.filter(w => w.id !== target.id && w.type === target.type && w.topic === target.topic);
     const sameType = words.filter(w => w.id !== target.id && w.type === target.type && w.topic !== target.topic);
     const anyOther = words.filter(w => w.id !== target.id && w.type !== target.type);
@@ -211,7 +213,7 @@
     for (const tier of tiers) {
       for (const w of tier) {
         if (picked.length >= want) break;
-        const t = answerText(w, dir);
+        const t = answerText(w, dir, bare);
         if (!t || usedText.has(t.toLowerCase())) continue; // no dup/synonym strings
         usedText.add(t.toLowerCase());
         picked.push({ text: t, wordId: w.id, correct: false });

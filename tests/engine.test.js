@@ -72,6 +72,8 @@ ok('mc correct is target', mc.options.find(o => o.correct).wordId === target.id)
 const nounT = words.find(w => w.type === 'noun' && w.article);
 const mcN = W.generateMC(nounT, words, 'EN_NL');
 eq('EN_NL noun option includes article', mcN.options.find(o => o.correct).text, nounT.article + ' ' + nounT.nl);
+const mcBare = W.generateMC(nounT, words, 'EN_NL', true); // bare = de/het asked separately
+eq('EN_NL bare option omits article', mcBare.options.find(o => o.correct).text, nounT.nl);
 
 // ---- typing judgement ---- (synthetic words, independent of data ids)
 const brood = { type: 'noun', nl: 'brood', article: 'het' };
