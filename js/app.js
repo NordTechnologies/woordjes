@@ -27,12 +27,45 @@
     } catch (e) {}
   }
   function speakBtn(text) { return `<button class="speak" type="button" data-speak="${esc(text)}" aria-label="Listen to pronunciation">🔊</button>`; }
-  function save() { W.Store.saveCards(S.cards); W.Store.saveUser(S.user); }
+  function save() { W.Store.saveCards(S.cards); W.Store.saveUser(S.user); idbBackup(); }
   function ensureCard(id) { if (!S.cards[id]) S.cards[id] = W.newCard(id, S.today); return S.cards[id]; }
+
+  // ---- durable storage: iOS standalone PWAs can wipe localStorage between launches,
+  //      so we mirror progress into IndexedDB and rehydrate from it on startup ----
+  function idbOpen() {
+    return new Promise((res, rej) => {
+      try { const r = indexedDB.open('woordjes', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    });
+  }
+  function idbGet(key) {
+    return idbOpen().then(db => new Promise(res => {
+      try { const q = db.transaction('kv', 'readonly').objectStore('kv').get(key); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }
+      catch (e) { res(null); }
+    })).catch(() => null);
+  }
+  function idbSet(key, val) {
+    return idbOpen().then(db => new Promise(res => {
+      try { const q = db.transaction('kv', 'readwrite').objectStore('kv').put(val, key); q.onsuccess = () => res(true); q.onerror = () => res(false); }
+      catch (e) { res(false); }
+    })).catch(() => {});
+  }
+  function idbBackup() { idbSet('cards', S.cards); idbSet('user', S.user); }
+  async function hydrateFromIDB() {
+    try {
+      if (!localStorage.getItem('wj.user.v0')) { const u = await idbGet('user'); if (u) localStorage.setItem('wj.user.v0', JSON.stringify(u)); }
+      if (!localStorage.getItem('wj.cards.v0')) { const c = await idbGet('cards'); if (c) localStorage.setItem('wj.cards.v0', JSON.stringify(c)); }
+    } catch (e) {}
+  }
+  function requestPersist() { try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {} }
 
   // ---------- bootstrap ----------
   async function init() {
     S.today = W.todayStr();
+    requestPersist();
+    await hydrateFromIDB();                 // restore progress if localStorage was evicted
     S.cards = W.Store.loadCards();
     S.user = W.Store.loadUser();
     const res = await fetch('./data/words.json', { cache: 'no-store' });
@@ -303,9 +336,12 @@
     document.getElementById('dunno').addEventListener('click', () => advance(false));
   }
   function finishPlacement() {
-    const c = S.placement.correct; let h = -1;
-    W.LEVELS.forEach((l, i) => { if (c[l] >= 2) h = i; });
-    const level = W.LEVELS[h < 0 ? 0 : Math.min(h + 1, W.LEVELS.length - 1)];
+    const c = S.placement.correct;
+    // Start at the LOWEST level the learner did not clearly pass (>=2 of 3 correct).
+    // This is conservative — a lucky guess at a high level can't jump you past a level
+    // you actually struggled with, so it won't over-rate (the old "+1 above" did).
+    let level = W.LEVELS[W.LEVELS.length - 1]; // all passed -> top level
+    for (const l of W.LEVELS) { if (c[l] < 2) { level = l; break; } }
     S.user.level = level; S.user.onboarded = true; save();
     renderLevelResult(level, true);
   }
@@ -331,7 +367,7 @@
       const tw = topicWords(topicFilter);
       const due = tw.filter(w => W.isDue(S.cards[w.id], S.today)).map(w => ({ wordId: w.id, isNew: false }));
       const unseen = tw.filter(w => !S.cards[w.id]).sort((a, b) => a.listOrder - b.listOrder)
-        .slice(0, W.C.SESSION_SIZE).map(w => ({ wordId: w.id, isNew: true }));
+        .slice(0, W.C.NEW_PER_SESSION).map(w => ({ wordId: w.id, isNew: true }));
       queue = due.concat(unseen).slice(0, W.C.SESSION_SIZE);
       if (!queue.length) { // nothing new/due in topic -> practice a few learned/started for review
         queue = tw.filter(w => S.cards[w.id]).slice(0, W.C.SESSION_SIZE).map(w => ({ wordId: w.id, isNew: false }));
@@ -343,7 +379,7 @@
     S.session = {
       queue, idx: 0, previewed: new Set(), answered: 0, correct: 0,
       newIntroduced: 0, reviewed: new Set(), learnedNames: [], topicFilter: topicFilter || null,
-      pendingNoun: null
+      newReps: {}, newAttempts: {}
     };
     $nav.hidden = true;
     $app.classList.add('training');
@@ -358,18 +394,26 @@
     else renderStep();
   }
 
-  function requeue(wordId) {
-    const s = S.session;
+  function isDrill(card) { return card.box === 0; } // box-0 = still being learned -> drill in-session
+  function requeueCurrent() { // re-insert the current word later in this session so it repeats
+    const s = S.session, item = curItem(), card = ensureCard(item.wordId);
     const pos = Math.min(s.idx + 1 + W.C.RETRY_GAP_IN_SESSION, s.queue.length);
-    s.queue.splice(pos, 0, { wordId, isNew: false, retry: true });
+    s.queue.splice(pos, 0, { wordId: item.wordId, isNew: card.box === 0 });
   }
 
   function renderStep() {
     const s = S.session, item = curItem(), w = S.byId[item.wordId], card = ensureCard(item.wordId);
-    if (item.isNew && !s.previewed.has(item.wordId) && card.box === 0 && card.firstSeenDay === S.today) {
-      // count a new introduction once
+    // Brand-new words are DRILLED several times within the session (preview -> recognise ->
+    // produce -> ...) before graduating to the next-day spaced schedule. Reviews use the box ramp.
+    const drill = isDrill(card);
+    let ex;
+    if (drill && !s.previewed.has(item.wordId)) ex = 'PREVIEW';
+    else if (drill) {
+      const r = s.newReps[item.wordId] || 0;
+      ex = r === 0 ? 'MC_NL_EN' : (r === 1 ? 'MC_EN_NL' : (S.user.hardModeEnabled ? 'TYPING' : 'MC_EN_NL'));
+    } else {
+      ex = W.exerciseFor(card, S.user, true);
     }
-    const ex = W.exerciseFor(card, S.user, s.previewed.has(item.wordId));
     const progress = Math.round(100 * s.idx / s.queue.length);
     const topHTML = `<div class="train-top">
         <button class="close" id="closeT" aria-label="Close">✕</button>
@@ -427,7 +471,7 @@
       }
       btn.classList.add('correct'); btn.innerHTML += '<span class="mark">✓</span>';
       buzz(10); announce('Correct');
-      scoreCorrect(w, card);
+      if (scoreCorrect(w, card)) requeueCurrent();
       setTimeout(advance, 650);
     } else {
       btn.classList.add('wrong', 'nudge'); btn.innerHTML += '<span class="mark">✕</span>';
@@ -435,8 +479,7 @@
       buzz([10, 40, 10]);
       const ans = mc.options[correctIdx].text;
       showFeedback(false, `Almost — it's “${esc(ans)}”`);
-      scoreWrong(w, card);
-      requeue(w.id);
+      if (scoreWrong(w, card)) requeueCurrent();
       addNextButton();
     }
   }
@@ -451,11 +494,11 @@
       fb.querySelectorAll('[data-a]').forEach(x => x.classList.add('locked'));
       if (right) {
         b.classList.remove('btn-secondary'); b.classList.add('btn-primary');
-        buzz(10); announce('Correct'); scoreCorrect(w, card); setTimeout(advance, 650);
+        buzz(10); announce('Correct'); if (scoreCorrect(w, card)) requeueCurrent(); setTimeout(advance, 650);
       } else {
         b.classList.add('wrong');
         showFeedback(false, `Almost — it's “${w.article} ${esc(w.nl)}”`);
-        scoreWrong(w, card); requeue(w.id); addNextButton();
+        if (scoreWrong(w, card)) requeueCurrent(); addNextButton();
       }
     }));
   }
@@ -480,33 +523,46 @@
       const verdict = W.judgeTyped(input.value, w);
       if (verdict === 'CORRECT') {
         showFeedback(true, 'Goed zo! ✓'); buzz(10); input.disabled = true;
-        scoreCorrect(w, card); setTimeout(advance, 700);
+        if (scoreCorrect(w, card)) requeueCurrent(); setTimeout(advance, 700);
       } else if (verdict === 'ALMOST' && !attempted) {
         attempted = true; showFeedback(false, 'Almost! Check your spelling and try again.'); input.select();
       } else {
         showFeedback(false, `It's “${esc(expected)}”`); buzz([10, 40, 10]); input.disabled = true;
-        scoreWrong(w, card); requeue(w.id); addNextButton();
+        if (scoreWrong(w, card)) requeueCurrent(); addNextButton();
       }
     };
     document.getElementById('check').addEventListener('click', submit);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
     document.getElementById('reveal').addEventListener('click', () => {
       showFeedback(false, `It's “${esc(expected)}”`); input.disabled = true;
-      scoreWrong(w, card); requeue(w.id); addNextButton();
+      if (scoreWrong(w, card)) requeueCurrent(); addNextButton();
     });
   }
 
-  // ---------- scoring ----------
+  // ---------- scoring ---------- (return true if the word should repeat later this session)
   function scoreCorrect(w, card) {
-    const r = W.onCorrect(card, S.today);
-    S.session.answered++; S.session.correct++; S.session.reviewed.add(w.id);
-    if (r.newlyLearned) S.session.learnedNames.push(w);
-    save();
+    const s = S.session; s.answered++; s.correct++; s.reviewed.add(w.id);
+    if (isDrill(card)) {
+      s.newReps[w.id] = (s.newReps[w.id] || 0) + 1;
+      s.newAttempts[w.id] = (s.newAttempts[w.id] || 0) + 1;
+      if (s.newReps[w.id] >= W.C.NEW_REPS_TARGET) { // drilled enough -> graduate to next-day review
+        const r = W.onCorrect(card, S.today); if (r.newlyLearned) s.learnedNames.push(w); save(); return false;
+      }
+      save(); return true; // keep repeating within this session
+    }
+    const r = W.onCorrect(card, S.today); if (r.newlyLearned) s.learnedNames.push(w); save(); return false;
   }
   function scoreWrong(w, card) {
-    W.onWrong(card, S.today);
-    S.session.answered++; S.session.reviewed.add(w.id);
-    save();
+    const s = S.session; s.answered++; s.reviewed.add(w.id);
+    if (isDrill(card)) {
+      s.newReps[w.id] = Math.max(0, (s.newReps[w.id] || 0) - 1);
+      s.newAttempts[w.id] = (s.newAttempts[w.id] || 0) + 1;
+      if (s.newAttempts[w.id] >= W.C.MAX_DRILL_ATTEMPTS) { // struggling -> stop looping, try again tomorrow
+        card.box = 1; card.nextDue = W.addDays(S.today, 1); card.lastReviewed = S.today; card.lastResult = 'WRONG'; save(); return false;
+      }
+      save(); return true;
+    }
+    W.onWrong(card, S.today); save(); return true;
   }
   function introduceNewDay() {
     if (S.user.lastNewDay !== S.today) { S.user.lastNewDay = S.today; S.user.newCountToday = 0; }

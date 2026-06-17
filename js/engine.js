@@ -11,7 +11,10 @@
     MAX_BOX: 6,
     DEMOTE_STEP: 2,
     MIN_BOX_ON_WRONG: 1,
-    NEW_WORDS_PER_DAY: 7,
+    NEW_WORDS_PER_DAY: 10,        // gradual: at most ~10 brand-new words per day
+    NEW_PER_SESSION: 5,          // introduce a few new words per session
+    NEW_REPS_TARGET: 3,          // times a new word must be answered right WITHIN the session before it graduates
+    MAX_DRILL_ATTEMPTS: 8,       // safety cap so a hard new word can't loop forever in one session
     REVIEW_BACKLOG_PAUSE: 30,
     SESSION_SIZE: 15,
     OPTIONS_PER_MC: 4,
@@ -110,9 +113,9 @@
   }
 
   // ---- session building (§6) ----
-  function allowedNewToday(cards, user, today, dueCount) {
+  function allowedNewToday(cards, user, today, dueCount, ignoreBacklog) {
     let introduced = (user.lastNewDay === today) ? user.newCountToday : 0;
-    if (dueCount >= C.REVIEW_BACKLOG_PAUSE) return 0;
+    if (!ignoreBacklog && dueCount >= C.REVIEW_BACKLOG_PAUSE) return 0;
     return Math.max(0, C.NEW_WORDS_PER_DAY - introduced);
   }
 
@@ -132,18 +135,19 @@
     const reviews = due.slice(0, C.SESSION_SIZE);
     let queue = reviews.slice();
 
-    let remaining = C.SESSION_SIZE - queue.length;
-    if (remaining > 0) {
-      const nAllowed = force ? remaining : Math.min(remaining, allowedNewToday(cards, user, today, due.length));
-      if (nAllowed > 0) {
-        const minLvl = levelRank(user.level || 'A1'); // only introduce new words at/above the chosen level
-        const unseen = words
-          .filter(w => !cards[w.id] && levelRank(w.level) >= minLvl)
-          .sort((a, b) => a.listOrder - b.listOrder)
-          .slice(0, nAllowed)
-          .map(w => ({ wordId: w.id, isNew: true }));
-        queue = interleave(reviews, unseen); // interleave new words rather than dumping at the end
-      }
+    // New words: a few per session (gradual), capped per day. Each one is then DRILLED
+    // several times within the session by the UI before it graduates to next-day review.
+    // force (the "Learn new words" button) ignores the backlog pause but still respects the
+    // daily new-word cap so we never flood the learner.
+    const nAllowed = Math.min(C.NEW_PER_SESSION, allowedNewToday(cards, user, today, due.length, force));
+    if (nAllowed > 0) {
+      const minLvl = levelRank(user.level || 'A1'); // only introduce new words at/above the chosen level
+      const unseen = words
+        .filter(w => !cards[w.id] && levelRank(w.level) >= minLvl)
+        .sort((a, b) => a.listOrder - b.listOrder)
+        .slice(0, nAllowed)
+        .map(w => ({ wordId: w.id, isNew: true }));
+      queue = interleave(reviews, unseen); // interleave new words rather than dumping at the end
     }
 
     // Forced "keep going": if still short (no due, cap-free, and all words already seen),
