@@ -22,6 +22,10 @@
     TYPO_EDIT_DISTANCE: 1
   };
 
+  // ---- CEFR levels ----
+  const LEVELS = ['A1', 'A2', 'B1', 'B2'];
+  function levelRank(l) { const i = LEVELS.indexOf(l); return i < 0 ? 0 : i; }
+
   // ---- date helpers (calendar dates, local tz, YYYY-MM-DD) ----
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function todayStr(d) {
@@ -41,6 +45,7 @@
       currentStreak: 0, longestStreak: 0, lastCompletedDay: null,
       freezeAvailable: false, daysSinceFreezeGranted: 0,
       hardModeEnabled: false,
+      level: null,                 // CEFR level the learner starts new words from (null = A1/all)
       lastNewDay: null, newCountToday: 0,
       reminderTime: null,
       onboarded: false
@@ -131,8 +136,9 @@
     if (remaining > 0) {
       const nAllowed = force ? remaining : Math.min(remaining, allowedNewToday(cards, user, today, due.length));
       if (nAllowed > 0) {
+        const minLvl = levelRank(user.level || 'A1'); // only introduce new words at/above the chosen level
         const unseen = words
-          .filter(w => !cards[w.id])
+          .filter(w => !cards[w.id] && levelRank(w.level) >= minLvl)
           .sort((a, b) => a.listOrder - b.listOrder)
           .slice(0, nAllowed)
           .map(w => ({ wordId: w.id, isNew: true }));
@@ -278,7 +284,7 @@
   }
 
   global.WJ = {
-    C, todayStr, addDays, dayDiff,
+    C, LEVELS, levelRank, todayStr, addDays, dayDiff,
     Store, newCard, isDue, onCorrect, onWrong, updateLearned,
     buildSession, allowedNewToday, exerciseFor,
     generateMC, judgeTyped, expectedTyped, normalize, levenshtein,

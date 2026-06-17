@@ -217,6 +217,15 @@ h2.section { font-size:1.0625rem; font-weight:600; margin:24px 0 10px; color:var
 .navbtn.active { color:var(--c-primary); }
 .navbtn.active .navicon { filter:none; }
 
+/* ---- onboarding / level ---- */
+.welcome { text-align:center; padding-top:48px; }
+.welcome-emoji { font-size:3.5rem; margin-bottom:8px; }
+.welcome .btn { max-width:340px; margin-inline:auto; }
+.level-pill { display:inline-flex; align-items:center; padding:6px 12px; border-radius:var(--r-pill);
+  background:var(--c-primary); color:#fff; font-weight:700; font-size:.85rem; }
+.level-row .level-badge { display:inline-flex; align-items:center; justify-content:center; width:42px; height:42px;
+  border-radius:var(--r-pill); background:var(--c-primary); color:#fff; font-weight:700; font-size:.9rem; flex:none; }
+
 .celebrate { animation:pop .5s ease; }
 @keyframes pop { 0%{transform:scale(.8);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
 

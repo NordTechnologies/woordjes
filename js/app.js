@@ -56,7 +56,7 @@
       try { _voices = speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => { _voices = speechSynthesis.getVoices(); }; } catch (e) {}
     }
 
-    if (!S.user.onboarded) { startSession(); }   // drop straight into learning on first open
+    if (!S.user.onboarded) { renderWelcome(); }   // first open: find the learner's level
     else { go('today'); }
   }
 
@@ -107,7 +107,10 @@
     $app.innerHTML = `
       <div class="topbar">
         <div class="greeting">${greet} 👋</div>
-        <button class="streak-pill" id="settingsBtn" aria-label="Streak and settings">🔥 ${S.user.currentStreak}</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="level-pill">${S.user.level || 'A1'}</span>
+          <button class="streak-pill" id="settingsBtn" aria-label="Streak and settings">🔥 ${S.user.currentStreak}</button>
+        </div>
       </div>
       <h1 class="title">Today</h1>
       <div class="hero">${heroInner}</div>
@@ -208,7 +211,11 @@
       </div>
       <h2 class="section">Settings</h2>
       <div class="card">
-        <label style="display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <span>Your level<br><span class="muted" style="font-size:.8rem">New words come from here and up</span></span>
+          <button class="btn btn-secondary" id="changeLevel" style="width:auto;padding:8px 16px;min-height:40px">${S.user.level || 'A1'} ›</button>
+        </div>
+        <label style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-top:1px solid var(--c-border);padding-top:14px">
           <span>Hard mode (typing)<br><span class="muted" style="font-size:.8rem">Type the Dutch word once you know it well</span></span>
           <input type="checkbox" id="hardmode" ${S.user.hardModeEnabled ? 'checked' : ''} style="transform:scale(1.4)">
         </label>
@@ -217,10 +224,101 @@
       <button class="btn btn-secondary" id="reset">Reset all progress</button>
       <p class="muted" style="font-size:.8rem;margin-top:16px">Woordjes v0 prototype · words pending native-speaker proofread</p>`;
     document.getElementById('back').addEventListener('click', () => go('today'));
+    document.getElementById('changeLevel').addEventListener('click', () => renderLevelPick(true));
     document.getElementById('hardmode').addEventListener('change', e => { S.user.hardModeEnabled = e.target.checked; save(); });
     document.getElementById('reset').addEventListener('click', () => {
       if (confirm('Reset all progress? This cannot be undone.')) { W.Store.reset(); S.cards = {}; S.user = W.Store.loadUser(); go('today'); }
     });
+  }
+
+  // ---------- ONBOARDING / LEVEL ----------
+  const LEVEL_DESC = {
+    A1: 'Beginner — just starting out',
+    A2: 'Elementary — basic everyday Dutch',
+    B1: 'Intermediate — everyday conversations',
+    B2: 'Upper-intermediate — more complex topics'
+  };
+  function shuffleArr(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  function renderWelcome() {
+    $nav.hidden = true; $app.classList.remove('training');
+    $app.innerHTML = `
+      <div class="welcome">
+        <div class="welcome-emoji">🇳🇱</div>
+        <h1 class="title">Welkom bij Woordjes</h1>
+        <p class="secondary-text">Learn the Dutch words you need — 5 minutes a day, no typing required.</p>
+        <p class="muted" style="margin-top:8px">Let's find your level so you start in the right place, not from scratch.</p>
+        <button class="btn btn-primary" id="takeTest" style="margin-top:28px">Take a 1-minute level check</button>
+        <button class="btn btn-secondary" id="pickLevel" style="margin-top:12px">I'll choose my level</button>
+      </div>`;
+    document.getElementById('takeTest').addEventListener('click', startPlacement);
+    document.getElementById('pickLevel').addEventListener('click', () => renderLevelPick(false));
+  }
+
+  function renderLevelPick(fromSettings) {
+    $nav.hidden = true; $app.classList.remove('training');
+    const rows = W.LEVELS.map(l => `<button class="row level-row" data-level="${l}">
+        <span class="level-badge">${l}</span>
+        <span class="row-main"><span class="row-title">${l}</span><span class="row-meta">${LEVEL_DESC[l]}</span></span>
+        <span class="chev">›</span></button>`).join('');
+    $app.innerHTML = `
+      <div class="topbar">${fromSettings ? `<button class="btn-ghost" id="back">‹ Back</button>` : '<span></span>'}<span></span></div>
+      <h1 class="title">Choose your level</h1>
+      <p class="muted">You can change this anytime in settings.</p>
+      <div class="list" style="margin-top:12px">${rows}</div>`;
+    if (fromSettings) document.getElementById('back').addEventListener('click', renderSettings);
+    $app.querySelectorAll('[data-level]').forEach(b => b.addEventListener('click', () => setLevel(b.dataset.level, fromSettings)));
+  }
+  function setLevel(level, fromSettings) {
+    S.user.level = level; S.user.onboarded = true; save();
+    if (fromSettings) go('today'); else renderLevelResult(level, false);
+  }
+
+  function startPlacement() {
+    $nav.hidden = true; $app.classList.add('training');
+    const qs = [];
+    W.LEVELS.forEach(l => { const pool = shuffleArr(S.words.filter(w => w.level === l)); pool.slice(0, 3).forEach(w => qs.push({ word: w, level: l })); });
+    S.placement = { qs: shuffleArr(qs), idx: 0, correct: { A1: 0, A2: 0, B1: 0, B2: 0 } };
+    renderPlacementStep();
+  }
+  function renderPlacementStep() {
+    const p = S.placement;
+    if (p.idx >= p.qs.length) { finishPlacement(); return; }
+    const { word, level } = p.qs[p.idx];
+    const mc = W.generateMC(word, S.words, 'NL_EN');
+    const progress = Math.round(100 * p.idx / p.qs.length);
+    const opts = mc.options.map((o, i) => `<button class="opt" data-i="${i}" lang="en">${esc(o.text)}</button>`).join('');
+    $app.innerHTML = `
+      <div class="train-top"><span class="count">Level check</span><span class="bar"><span style="width:${progress}%"></span></span><span class="count">${p.idx + 1}/${p.qs.length}</span></div>
+      <div class="prompt"><div class="ask">What does this mean?</div><div class="word" lang="nl">${esc(word.nl)}${speakBtn(word.nl)}</div></div>
+      <div class="options">${opts}</div>
+      <button class="btn btn-ghost" id="dunno" style="margin-top:16px">I don't know this one</button>`;
+    const advance = (right) => { if (right) p.correct[level]++; p.idx++; setTimeout(renderPlacementStep, 350); };
+    $app.querySelectorAll('.opt').forEach(btn => btn.addEventListener('click', () => {
+      const o = mc.options[+btn.dataset.i]; $app.querySelectorAll('.opt').forEach(x => x.classList.add('locked'));
+      const ci = mc.options.findIndex(x => x.correct);
+      if (o.correct) { btn.classList.add('correct'); } else { btn.classList.add('wrong'); $app.querySelectorAll('.opt')[ci].classList.add('correct'); }
+      advance(o.correct);
+    }));
+    document.getElementById('dunno').addEventListener('click', () => advance(false));
+  }
+  function finishPlacement() {
+    const c = S.placement.correct; let h = -1;
+    W.LEVELS.forEach((l, i) => { if (c[l] >= 2) h = i; });
+    const level = W.LEVELS[h < 0 ? 0 : Math.min(h + 1, W.LEVELS.length - 1)];
+    S.user.level = level; S.user.onboarded = true; save();
+    renderLevelResult(level, true);
+  }
+  function renderLevelResult(level, fromTest) {
+    $nav.hidden = true; $app.classList.remove('training');
+    $app.innerHTML = `
+      <div class="complete">
+        <div class="emoji celebrate">🎯</div>
+        <h1>You're starting at ${level}</h1>
+        <p class="secondary-text">${fromTest ? 'Based on your quick check. ' : ''}We'll suggest new words from <strong>${level}</strong> and up — change it anytime in settings.</p>
+        <button class="btn btn-primary" id="go" style="margin-top:22px">Start learning ▸</button>
+      </div>`;
+    document.getElementById('go').addEventListener('click', () => startSession());
   }
 
   // ---------- TRAINING SESSION ----------
