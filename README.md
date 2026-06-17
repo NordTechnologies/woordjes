@@ -8,6 +8,23 @@ This is **v0**: a mobile web app (PWA) for fast testing on an iPhone. The eventu
 App Store release will be a native Flutter app built from the same design + logic
 (see the plan in Obsidian).
 
+## 🌐 Live (shareable)
+
+**https://nordtechnologies.github.io/woordjes/**
+
+Open on any phone, "Add to Home Screen" to install. Works offline after first load.
+Hosted free on GitHub Pages from the `gh-pages` branch.
+
+### Updating the live site after changes
+```
+git add -A && git commit -m "..."        # commit changes on main
+git push                                  # update the source repo
+git -c credential.helper='!gh auth git-credential' \
+    subtree push --prefix public origin gh-pages   # redeploy the app
+```
+Pages rebuilds in ~1 minute; the network-first service worker means testers get the
+new version on next open.
+
 ## Run it on your iPhone (private, over Wi-Fi)
 
 1. On your Mac, run the server (either):
