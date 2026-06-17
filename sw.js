@@ -1,8 +1,6 @@
-/* Woordjes service worker — offline cache for the PWA.
-   Note: service workers only register over HTTPS or localhost. Over a plain-http
-   Wi-Fi IP (v0 testing) the app still works fully online; offline install kicks in
-   once the app is served over HTTPS (a later deploy step). */
-const CACHE = 'woordjes-v0-1';
+/* Woordjes service worker — network-first so testers always get the latest version,
+   with offline fallback from cache. (Registers only over HTTPS/localhost.) */
+const CACHE = 'woordjes-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -25,16 +23,18 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Network-first: fetch fresh, update cache, fall back to cache when offline.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then((cached) =>
-      cached ||
-      fetch(e.request).then((res) => {
+    fetch(e.request)
+      .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
         return res;
-      }).catch(() => cached)
-    )
+      })
+      .catch(() =>
+        caches.match(e.request).then((cached) => cached || caches.match('./index.html'))
+      )
   );
 });
