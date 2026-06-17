@@ -1,6 +1,8 @@
 /* Woordjes v0 — UI controller. Wires engine.js to the screens in the Design Spec. */
 (function () {
   'use strict';
+  const BUILD = '2026-06-17.6';   // visible in Settings + console; bump on each deploy
+  try { console.log('Woordjes build', BUILD); } catch (e) {}
   const W = window.WJ;
   const $app = document.getElementById('app');
   const $nav = document.getElementById('bottomnav');
@@ -76,7 +78,12 @@
     S.topics.forEach(t => { S.topicById[t.id] = t; });
 
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
+      // auto-update: when a new service worker takes control, reload once to load fresh code
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) { refreshing = true; location.reload(); }
+      });
+      navigator.serviceWorker.register('./sw.js').then(reg => { try { reg.update(); } catch (e) {} }).catch(() => {});
     }
     $nav.querySelectorAll('.navbtn').forEach(b => b.addEventListener('click', () => go(b.dataset.nav)));
 
@@ -255,7 +262,7 @@
       </div>
       <h2 class="section">Reset</h2>
       <button class="btn btn-secondary" id="reset">Reset all progress</button>
-      <p class="muted" style="font-size:.8rem;margin-top:16px">Woordjes v0 prototype · words pending native-speaker proofread</p>`;
+      <p class="muted" style="font-size:.8rem;margin-top:16px">Woordjes v0 prototype · build ${BUILD}<br>words pending native-speaker proofread</p>`;
     document.getElementById('back').addEventListener('click', () => go('today'));
     document.getElementById('changeLevel').addEventListener('click', () => renderLevelPick(true));
     document.getElementById('hardmode').addEventListener('change', e => { S.user.hardModeEnabled = e.target.checked; save(); });
