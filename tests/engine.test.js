@@ -106,14 +106,13 @@ const fresh = {};
 const u3 = W.Store.loadUser();
 const session = W.buildSession(words, fresh, u3, '2026-06-17');
 ok('session non-empty', session.length > 0);
-ok('session new words <= cap', session.filter(i => i.isNew).length <= W.C.NEW_WORDS_PER_DAY);
+ok('session new words <= per-session cap', session.filter(i => i.isNew).length <= W.C.NEW_PER_SESSION);
 
-// ---- forced session (the "Learn new words" button) ----
-const uCap = W.Store.loadUser(); uCap.lastNewDay = '2026-06-17'; uCap.newCountToday = 7;
-eq('normal session empty when capped & nothing due', W.buildSession(words, {}, uCap, '2026-06-17').length, 0);
-const forced = W.buildSession(words, {}, uCap, '2026-06-17', { force: true });
-ok('forced session ignores daily cap', forced.length > 0);
-ok('forced session pulls new words', forced.some(i => i.isNew));
+// ---- new-word cap + forced "Learn new words" ----
+const uCap = W.Store.loadUser(); uCap.lastNewDay = '2026-06-17'; uCap.newCountToday = W.C.NEW_WORDS_PER_DAY;
+eq('no new + nothing due => empty session', W.buildSession(words, {}, uCap, '2026-06-17').length, 0);
+eq('backlog pause blocks new (normal)', W.allowedNewToday({}, W.Store.loadUser(), '2026-06-17', W.C.REVIEW_BACKLOG_PAUSE, false), 0);
+ok('force ignores backlog pause', W.allowedNewToday({}, W.Store.loadUser(), '2026-06-17', W.C.REVIEW_BACKLOG_PAUSE, true) > 0);
 // forced fill from existing when everything already seen
 const allSeen = {};
 words.forEach(w => { allSeen[w.id] = W.newCard(w.id, '2026-06-01'); allSeen[w.id].box = 3; allSeen[w.id].nextDue = '2026-12-01'; });
