@@ -62,19 +62,19 @@ W.onWrong(M, '2026-06-21');
 ok('learned drops on miss', M.learned === false);
 
 // ---- MC generation ----
-const target = words.find(w => w.id === 45); // brood (noun, food)
+const target = words.find(w => w.type === 'noun');
 const mc = W.generateMC(target, words, 'EN_NL');
 eq('mc 4 options', mc.options.length, 4);
 ok('mc one correct', mc.options.filter(o => o.correct).length === 1);
 ok('mc no dup strings', new Set(mc.options.map(o => o.text.toLowerCase())).size === mc.options.length);
-ok('mc correct is target', mc.options.find(o => o.correct).wordId === 45);
+ok('mc correct is target', mc.options.find(o => o.correct).wordId === target.id);
 
-// ---- typing judgement ----
-const brood = words.find(w => w.id === 45); // het brood
+// ---- typing judgement ---- (synthetic words, independent of data ids)
+const brood = { type: 'noun', nl: 'brood', article: 'het' };
 eq('typed exact w/ article', W.judgeTyped('het brood', brood), 'CORRECT');
 eq('typed missing article strict', W.judgeTyped('brood', brood), 'WRONG');
 eq('typed wrong article strict', W.judgeTyped('de brood', brood), 'WRONG');
-const werken = words.find(w => w.id === 17);
+const werken = { type: 'verb', nl: 'werken' };
 eq('typed verb exact', W.judgeTyped('werken', werken), 'CORRECT');
 eq('typed case-insensitive', W.judgeTyped('Werken', werken), 'CORRECT');
 eq('typed consonant substitution -> ALMOST', W.judgeTyped('werkem', werken), 'ALMOST'); // n->m, both consonants
@@ -130,6 +130,14 @@ ok('every noun has article+plural', words.filter(w => w.type === 'noun').every(w
 ok('every verb has 3 forms', words.filter(w => w.type === 'verb').every(w => w.pastSimple && w.perfect));
 const topicIds = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, '../public/data/words.json'), 'utf8')).topics.map(t => t.id));
 ok('every word maps to a real topic', words.every(w => topicIds.has(w.topic)));
+ok('expanded to ~1000 words', words.length >= 1000);
+ok('every word has a CEFR level', words.every(w => ['A1', 'A2', 'B1', 'B2'].includes(w.level)));
+
+// ---- level filter on new-word intake ----
+const WID = Object.fromEntries(words.map(w => [w.id, w]));
+const uLvl = W.Store.loadUser(); uLvl.level = 'B1';
+const lvlSession = W.buildSession(words, {}, uLvl, '2026-06-17', { force: true });
+ok('new words respect chosen level (B1+)', lvlSession.filter(i => i.isNew).every(i => W.levelRank(WID[i.wordId].level) >= W.levelRank('B1')));
 
 // ---- summary ----
 console.log(`\n${pass} passed, ${fail} failed`);
