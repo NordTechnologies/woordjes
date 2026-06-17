@@ -1,7 +1,7 @@
 /* Woordjes v0 — UI controller. Wires engine.js to the screens in the Design Spec. */
 (function () {
   'use strict';
-  const BUILD = '2026-06-17.7';   // visible in Settings + console; bump on each deploy
+  const BUILD = '2026-06-17.8';   // visible in Settings + console; bump on each deploy
   try { console.log('Woordjes build', BUILD); } catch (e) {}
   const W = window.WJ;
   const $app = document.getElementById('app');
@@ -446,7 +446,9 @@
 
     // multiple choice
     const dir = (ex === 'MC_NL_EN') ? 'NL_EN' : 'EN_NL';
-    const mc = W.generateMC(w, S.words, dir);
+    // Active de/het test on review-level production questions; new-word drilling shows the article instead.
+    const dehet = dir === 'EN_NL' && w.type === 'noun' && !!w.article && card.box >= 2;
+    const mc = W.generateMC(w, S.words, dir, dehet); // bare nouns only when de/het is asked separately
     const ask = dir === 'NL_EN' ? 'What does this mean?' : 'How do you say this in Dutch?';
     const promptHTML = dir === 'NL_EN'
       ? `<div class="word" lang="nl">${esc(mc.prompt)}${speakBtn(mc.prompt)}</div>`
@@ -459,16 +461,20 @@
        <div class="feedback" id="fb"></div>`;
     bindClose();
     $app.querySelectorAll('.opt').forEach(btn => btn.addEventListener('click', () =>
-      onMcAnswer(btn, mc, w, card, dir)));
+      onMcAnswer(btn, mc, w, card, dehet)));
   }
 
-  function onMcAnswer(btn, mc, w, card, dir) {
+  function onMcAnswer(btn, mc, w, card, dehet) {
     const i = +btn.dataset.i, chosen = mc.options[i];
     const opts = $app.querySelectorAll('.opt');
     opts.forEach(o => o.classList.add('locked'));
     const correctIdx = mc.options.findIndex(o => o.correct);
 
     if (chosen.correct) {
+      if (dehet) { // right noun picked -> now actively test the article
+        btn.classList.add('correct'); opts.forEach(o => o.classList.add('locked'));
+        askDeHet(w, card); return;
+      }
       btn.classList.add('correct'); btn.innerHTML += '<span class="mark">✓</span>';
       buzz(10); announce('Correct');
       if (scoreCorrect(w, card)) requeueCurrent();
@@ -484,6 +490,25 @@
     }
   }
 
+
+  function askDeHet(w, card) {
+    const fb = document.getElementById('fb');
+    fb.innerHTML = `<div class="dehet"><div class="q">Is it <strong>de</strong> or <strong>het</strong> ${esc(w.nl)}?</div>
+      <div class="btn-row"><button class="btn btn-secondary" data-a="de">de</button>
+      <button class="btn btn-secondary" data-a="het">het</button></div></div>`;
+    fb.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => {
+      const right = b.dataset.a === w.article;
+      fb.querySelectorAll('[data-a]').forEach(x => x.classList.add('locked'));
+      if (right) {
+        b.classList.remove('btn-secondary'); b.classList.add('btn-primary');
+        buzz(10); announce('Correct'); if (scoreCorrect(w, card)) requeueCurrent(); setTimeout(advance, 650);
+      } else {
+        b.classList.add('wrong');
+        showFeedback(false, `Almost — it's “${w.article} ${esc(w.nl)}”`);
+        if (scoreWrong(w, card)) requeueCurrent(); addNextButton();
+      }
+    }));
+  }
 
   function renderTyping(topHTML, w, card) {
     const expected = W.expectedTyped(w);
