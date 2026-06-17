@@ -192,7 +192,11 @@
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
   }
-  function answerText(word, dir) { return dir === 'NL_EN' ? word.en : word.nl; }
+  // Dutch answers always carry the article (de/het) so the learner absorbs gender every time.
+  function answerText(word, dir) {
+    if (dir === 'NL_EN') return word.en;
+    return (word.type === 'noun' && word.article) ? (word.article + ' ' + word.nl) : word.nl;
+  }
 
   // dir: 'NL_EN' (prompt nl, answers en) or 'EN_NL' (prompt en, answers nl)
   function generateMC(target, words, dir) {

@@ -1,7 +1,7 @@
 /* Woordjes v0 — UI controller. Wires engine.js to the screens in the Design Spec. */
 (function () {
   'use strict';
-  const BUILD = '2026-06-17.6';   // visible in Settings + console; bump on each deploy
+  const BUILD = '2026-06-17.7';   // visible in Settings + console; bump on each deploy
   try { console.log('Woordjes build', BUILD); } catch (e) {}
   const W = window.WJ;
   const $app = document.getElementById('app');
@@ -469,13 +469,6 @@
     const correctIdx = mc.options.findIndex(o => o.correct);
 
     if (chosen.correct) {
-      // noun de/het follow-up only for production direction at box>=2
-      if (dir === 'EN_NL' && w.type === 'noun' && w.article && card.box >= 2) {
-        btn.classList.add('correct'); btn.classList.remove('locked');
-        opts.forEach(o => o.classList.add('locked'));
-        askDeHet(w, card);
-        return;
-      }
       btn.classList.add('correct'); btn.innerHTML += '<span class="mark">✓</span>';
       buzz(10); announce('Correct');
       if (scoreCorrect(w, card)) requeueCurrent();
@@ -491,24 +484,6 @@
     }
   }
 
-  function askDeHet(w, card) {
-    const fb = document.getElementById('fb');
-    fb.innerHTML = `<div class="dehet"><div class="q">Is it <strong>de</strong> or <strong>het</strong> ${esc(w.nl)}?</div>
-      <div class="btn-row"><button class="btn btn-secondary" data-a="de">de</button>
-      <button class="btn btn-secondary" data-a="het">het</button></div></div>`;
-    fb.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => {
-      const right = b.dataset.a === w.article;
-      fb.querySelectorAll('[data-a]').forEach(x => x.classList.add('locked'));
-      if (right) {
-        b.classList.remove('btn-secondary'); b.classList.add('btn-primary');
-        buzz(10); announce('Correct'); if (scoreCorrect(w, card)) requeueCurrent(); setTimeout(advance, 650);
-      } else {
-        b.classList.add('wrong');
-        showFeedback(false, `Almost — it's “${w.article} ${esc(w.nl)}”`);
-        if (scoreWrong(w, card)) requeueCurrent(); addNextButton();
-      }
-    }));
-  }
 
   function renderTyping(topHTML, w, card) {
     const expected = W.expectedTyped(w);

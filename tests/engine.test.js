@@ -68,6 +68,10 @@ eq('mc 4 options', mc.options.length, 4);
 ok('mc one correct', mc.options.filter(o => o.correct).length === 1);
 ok('mc no dup strings', new Set(mc.options.map(o => o.text.toLowerCase())).size === mc.options.length);
 ok('mc correct is target', mc.options.find(o => o.correct).wordId === target.id);
+// Dutch options carry the article (de/het) for passive gender learning
+const nounT = words.find(w => w.type === 'noun' && w.article);
+const mcN = W.generateMC(nounT, words, 'EN_NL');
+eq('EN_NL noun option includes article', mcN.options.find(o => o.correct).text, nounT.article + ' ' + nounT.nl);
 
 // ---- typing judgement ---- (synthetic words, independent of data ids)
 const brood = { type: 'noun', nl: 'brood', article: 'het' };
