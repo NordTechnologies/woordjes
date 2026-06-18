@@ -2,7 +2,25 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'engine.dart';
+
+// ---- audio (tap to hear the Dutch word) ----
+final FlutterTts _tts = FlutterTts();
+Future<void> speak(String text) async {
+  try {
+    await _tts.stop();
+    await _tts.setLanguage('nl-NL');
+    await _tts.setSpeechRate(0.45);
+    await _tts.speak(text);
+  } catch (_) {}
+}
+
+Widget speakBtn(String text) => IconButton(
+      visualDensity: VisualDensity.compact,
+      icon: const Icon(Icons.volume_up_rounded, color: inkBlue, size: 22),
+      onPressed: () => speak(text),
+    );
 
 // ---- palette (from Design Spec) ----
 const inkBlue = Color(0xFF1E3A5F);
@@ -79,9 +97,198 @@ class WoordjesApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: inkBlue, primary: inkBlue),
         useMaterial3: true,
       ),
-      home: const HomeShell(),
+      home: const Root(),
     );
   }
+}
+
+// ---- root gate: onboarding vs home ----
+class Root extends StatefulWidget {
+  const Root({super.key});
+  @override
+  State<Root> createState() => _RootState();
+}
+
+class _RootState extends State<Root> {
+  @override
+  Widget build(BuildContext context) {
+    if (!Store.user.onboarded) return OnboardingFlow(onDone: () => setState(() {}));
+    return const HomeShell();
+  }
+}
+
+const Map<String, String> levelDesc = {
+  'A1': 'Beginner — just starting out',
+  'A2': 'Elementary — basic everyday Dutch',
+  'B1': 'Intermediate — everyday conversations',
+  'B2': 'Upper-intermediate — complex topics',
+};
+
+class OnboardingFlow extends StatefulWidget {
+  final VoidCallback onDone;
+  const OnboardingFlow({super.key, required this.onDone});
+  @override
+  State<OnboardingFlow> createState() => _OnboardingFlowState();
+}
+
+class _OnboardingFlowState extends State<OnboardingFlow> {
+  String phase = 'welcome';
+  List<Word> qWords = [];
+  int qi = 0;
+  final Map<String, int> correctByLevel = {'A1': 0, 'A2': 0, 'B1': 0, 'B2': 0};
+  McQuestion? q;
+  int? chosen;
+  String resultLevel = 'A1';
+
+  void _startPlacement() {
+    final qs = <Word>[];
+    for (final lv in levels) {
+      final pool = words.where((w) => w.level == lv).toList()..shuffle();
+      qs.addAll(pool.take(3));
+    }
+    qs.shuffle();
+    qWords = qs;
+    qi = 0;
+    q = generateMC(qWords[0], words, 'NL_EN');
+    chosen = null;
+    setState(() => phase = 'placement');
+  }
+
+  void _answer(int i) {
+    final lv = qWords[qi].level;
+    if (i >= 0 && q!.options[i].correct) correctByLevel[lv] = correctByLevel[lv]! + 1;
+    setState(() => chosen = i >= 0 ? i : q!.options.indexWhere((o) => o.correct));
+    Future.delayed(const Duration(milliseconds: 400), () {
+      qi++;
+      if (qi >= qWords.length) {
+        String lvl = levels.last;
+        for (final l in levels) {
+          if (correctByLevel[l]! < 2) {
+            lvl = l;
+            break;
+          }
+        }
+        resultLevel = lvl;
+        _setLevel(lvl);
+        setState(() => phase = 'result');
+      } else {
+        setState(() {
+          q = generateMC(qWords[qi], words, 'NL_EN');
+          chosen = null;
+        });
+      }
+    });
+  }
+
+  void _setLevel(String l) {
+    Store.user.level = l;
+    Store.user.onboarded = true;
+    Store.save();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget body;
+    if (phase == 'welcome') {
+      body = _welcome();
+    } else if (phase == 'levelpick') {
+      body = _levelPick();
+    } else if (phase == 'placement') {
+      body = _placement();
+    } else {
+      body = _result();
+    }
+    return Scaffold(body: SafeArea(child: Padding(padding: const EdgeInsets.all(20), child: body)));
+  }
+
+  Widget _welcome() => Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Text('🇳🇱', style: TextStyle(fontSize: 56)),
+        const SizedBox(height: 8),
+        const Text('Welkom bij Woordjes', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: t1), textAlign: TextAlign.center),
+        const SizedBox(height: 10),
+        const Text('Learn the Dutch words you need — 5 minutes a day, no typing required.', style: TextStyle(color: t2), textAlign: TextAlign.center),
+        const SizedBox(height: 8),
+        const Text("Let's find your level so you start in the right place.", style: TextStyle(color: t3), textAlign: TextAlign.center),
+        const SizedBox(height: 28),
+        SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: inkBlue, minimumSize: const Size.fromHeight(52)), onPressed: _startPlacement, child: const Text('Take a 1-minute level check', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)))),
+        const SizedBox(height: 12),
+        SizedBox(width: double.infinity, child: OutlinedButton(style: OutlinedButton.styleFrom(foregroundColor: inkBlue, side: const BorderSide(color: inkBlue, width: 1.5), minimumSize: const Size.fromHeight(52)), onPressed: () => setState(() => phase = 'levelpick'), child: const Text("I'll choose my level", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)))),
+      ]);
+
+  Widget _levelPick() => ListView(children: [
+        const SizedBox(height: 8),
+        const Text('Choose your level', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: t1)),
+        const SizedBox(height: 6),
+        const Text('You can change this anytime.', style: TextStyle(color: t3)),
+        const SizedBox(height: 16),
+        ...levels.map((l) => Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: CircleAvatar(backgroundColor: inkBlue, child: Text(l, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13))),
+                title: Text(l, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(levelDesc[l]!, style: const TextStyle(color: t3, fontSize: 13)),
+                trailing: const Icon(Icons.chevron_right, color: t3),
+                onTap: () {
+                  resultLevel = l;
+                  _setLevel(l);
+                  setState(() => phase = 'result');
+                },
+              ),
+            )),
+      ]);
+
+  Widget _placement() {
+    final correctIdx = q!.options.indexWhere((o) => o.correct);
+    return Column(children: [
+      Row(children: [
+        const Text('Level check', style: TextStyle(color: t3, fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(width: 12),
+        Expanded(child: LinearProgressIndicator(value: qi / qWords.length, backgroundColor: surfaceAlt, color: inkBlue, minHeight: 8, borderRadius: BorderRadius.circular(999))),
+        const SizedBox(width: 12),
+        Text('${qi + 1}/${qWords.length}', style: const TextStyle(color: t3, fontSize: 13, fontWeight: FontWeight.w600)),
+      ]),
+      const SizedBox(height: 28),
+      const Text('What does this mean?', style: TextStyle(color: t3)),
+      const SizedBox(height: 8),
+      Text(q!.prompt, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: t1)),
+      const SizedBox(height: 24),
+      ...List.generate(q!.options.length, (i) {
+        final o = q!.options[i];
+        Color bgc = surface, bc = cBorder;
+        if (chosen != null) {
+          if (i == correctIdx) {
+            bgc = greenSoft;
+            bc = green;
+          } else if (i == chosen) {
+            bgc = coralSoft;
+            bc = coral;
+          }
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(backgroundColor: bgc, side: BorderSide(color: bc, width: 1.5), minimumSize: const Size.fromHeight(56), foregroundColor: t1),
+              onPressed: chosen == null ? () => _answer(i) : null,
+              child: Text(o.text, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w500)),
+            ),
+          ),
+        );
+      }),
+      TextButton(onPressed: chosen == null ? () => _answer(-1) : null, child: const Text("I don't know this one", style: TextStyle(color: accentText))),
+    ]);
+  }
+
+  Widget _result() => Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Text('🎯', style: TextStyle(fontSize: 48)),
+        const SizedBox(height: 12),
+        Text("You're starting at $resultLevel", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: t1)),
+        const SizedBox(height: 8),
+        Text("We'll suggest new words from $resultLevel and up — change it anytime in settings.", style: const TextStyle(color: t2), textAlign: TextAlign.center),
+        const SizedBox(height: 24),
+        SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: inkBlue, minimumSize: const Size.fromHeight(52)), onPressed: widget.onDone, child: const Text('Start learning ▸', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)))),
+      ]);
 }
 
 class HomeShell extends StatefulWidget {
@@ -100,7 +307,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final body = tab == 0 ? TodayTab(onStart: _startSession) : const WordsTab();
+    final body = tab == 0 ? TodayTab(onStart: _startSession, onChanged: () => setState(() {})) : const WordsTab();
     return Scaffold(
       body: SafeArea(child: body),
       bottomNavigationBar: NavigationBar(
@@ -118,7 +325,32 @@ class _HomeShellState extends State<HomeShell> {
 // ---- Today ----
 class TodayTab extends StatelessWidget {
   final Future<void> Function({bool force}) onStart;
-  const TodayTab({super.key, required this.onStart});
+  final VoidCallback onChanged;
+  const TodayTab({super.key, required this.onStart, required this.onChanged});
+
+  void _changeLevel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(padding: EdgeInsets.all(16), child: Text('Your level', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18))),
+          ...levels.map((l) => ListTile(
+                leading: CircleAvatar(backgroundColor: inkBlue, radius: 16, child: Text(l, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+                title: Text(l),
+                subtitle: Text(levelDesc[l]!, style: const TextStyle(fontSize: 12)),
+                trailing: (Store.user.level ?? 'A1') == l ? const Icon(Icons.check, color: green) : null,
+                onTap: () {
+                  Store.user.level = l;
+                  Store.save();
+                  Navigator.pop(context);
+                  onChanged();
+                },
+              )),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +386,11 @@ class TodayTab extends StatelessWidget {
       children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text('$greet 👋', style: const TextStyle(color: t2, fontSize: 16)),
-          _pill('🔥 ${Store.user.currentStreak}', accentSoft, accentText),
+          Row(children: [
+            GestureDetector(onTap: () => _changeLevel(context), child: _pill(Store.user.level ?? 'A1', inkBlue, Colors.white)),
+            const SizedBox(width: 8),
+            _pill('🔥 ${Store.user.currentStreak}', accentSoft, accentText),
+          ]),
         ]),
         const SizedBox(height: 12),
         const Text('Today', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: t1)),
@@ -506,7 +742,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
           const Text('New word', style: TextStyle(color: t3, fontSize: 14)),
           const SizedBox(height: 8),
           if (w.type == 'noun' && w.article != null) _badge(w.article!),
-          Text(w.nl, style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w700, color: t1)),
+          Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+            Flexible(child: Text(w.nl, style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w700, color: t1))),
+            speakBtn(dispNL(w)),
+          ]),
           if (w.type == 'noun' && w.plural != null && w.plural != '—') Text('pl. ${w.plural}', style: const TextStyle(color: t3)),
           if (w.type == 'verb') Padding(padding: const EdgeInsets.only(top: 6), child: Text('${w.pastSimple} · ${w.perfect}', style: const TextStyle(color: t2, fontSize: 16))),
           const SizedBox(height: 10),
@@ -528,7 +767,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
       const SizedBox(height: 28),
       Text(ask, style: const TextStyle(color: t3)),
       const SizedBox(height: 8),
-      Text(q.prompt, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: t1), textAlign: TextAlign.center),
+      q.dir == 'NL_EN'
+          ? Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+              Flexible(child: Text(q.prompt, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: t1), textAlign: TextAlign.center)),
+              speakBtn(q.prompt),
+            ])
+          : Text(q.prompt, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: t1), textAlign: TextAlign.center),
       const SizedBox(height: 24),
       if (!deHetPhase)
         ...List.generate(q.options.length, (i) {
