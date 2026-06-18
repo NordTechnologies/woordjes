@@ -390,6 +390,13 @@ class TodayTab extends StatelessWidget {
             GestureDetector(onTap: () => _changeLevel(context), child: _pill(Store.user.level ?? 'A1', inkBlue, Colors.white)),
             const SizedBox(width: 8),
             _pill('🔥 ${Store.user.currentStreak}', accentSoft, accentText),
+            IconButton(
+              onPressed: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                onChanged();
+              },
+              icon: const Icon(Icons.settings, color: t3, size: 22),
+            ),
           ]),
         ]),
         const SizedBox(height: 12),
@@ -438,9 +445,178 @@ Widget _pill(String text, Color bgc, Color fg) => Container(
       child: Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14)),
     );
 
+const String buildVersion = 'native.1';
+
+bool addToPriority(int id) {
+  if (Store.cards.containsKey(id)) return false;
+  if (Store.user.priorityQueue.contains(id)) return false;
+  Store.user.priorityQueue.add(id);
+  Store.save();
+  return true;
+}
+
+void showLevelSheet(BuildContext context, VoidCallback onChanged) {
+  showModalBottomSheet(
+    context: context,
+    builder: (_) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Padding(padding: EdgeInsets.all(16), child: Text('Your level', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18))),
+        ...levels.map((l) => ListTile(
+              leading: CircleAvatar(backgroundColor: inkBlue, radius: 16, child: Text(l, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+              title: Text(l),
+              subtitle: Text(levelDesc[l]!, style: const TextStyle(fontSize: 12)),
+              trailing: (Store.user.level ?? 'A1') == l ? const Icon(Icons.check, color: green) : null,
+              onTap: () {
+                Store.user.level = l;
+                Store.save();
+                Navigator.pop(context);
+                onChanged();
+              },
+            )),
+        const SizedBox(height: 8),
+      ]),
+    ),
+  );
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final u = Store.user;
+    return Scaffold(
+      appBar: AppBar(title: const Text('You'), backgroundColor: bg, foregroundColor: t1, elevation: 0),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        Card(
+          child: Column(children: [
+            ListTile(
+              title: const Text('Your level'),
+              subtitle: const Text('New words come from here and up'),
+              trailing: OutlinedButton(onPressed: () => showLevelSheet(context, () => setState(() {})), child: Text(u.level ?? 'A1')),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('Hard mode (typing)'),
+              subtitle: const Text('Type the Dutch word once you know it well'),
+              value: u.hardModeEnabled,
+              activeColor: inkBlue,
+              onChanged: (v) {
+                setState(() => u.hardModeEnabled = v);
+                Store.save();
+              },
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('Daily reminder'),
+              subtitle: const Text('One gentle nudge (delivered in the installed app)'),
+              value: u.reminderOn,
+              activeColor: inkBlue,
+              onChanged: (v) {
+                setState(() => u.reminderOn = v);
+                Store.save();
+              },
+            ),
+            if (u.reminderOn)
+              ListTile(
+                title: const Text('Reminder time'),
+                trailing: Text(u.reminderTime, style: const TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () async {
+                  final parts = u.reminderTime.split(':');
+                  final picked = await showTimePicker(context: context, initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])));
+                  if (picked != null) {
+                    setState(() => u.reminderTime = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}');
+                    Store.save();
+                  }
+                },
+              ),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(foregroundColor: inkBlue, side: const BorderSide(color: inkBlue, width: 1.5), minimumSize: const Size.fromHeight(50)),
+          onPressed: () async {
+            final ok = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Reset all progress?'),
+                content: const Text('This cannot be undone.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
+                ],
+              ),
+            );
+            if (ok == true) {
+              Store.cards.clear();
+              Store.user = UserState();
+              await Store.save();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const Root()), (r) => false);
+              }
+            }
+          },
+          child: const Text('Reset all progress'),
+        ),
+        const SizedBox(height: 16),
+        Text('Woordjes · build $buildVersion · ${words.length} words', style: const TextStyle(color: t3, fontSize: 12), textAlign: TextAlign.center),
+      ]),
+    );
+  }
+}
+
 // ---- Words (learned + in progress, by topic, expandable) ----
-class WordsTab extends StatelessWidget {
+class WordsTab extends StatefulWidget {
   const WordsTab({super.key});
+  @override
+  State<WordsTab> createState() => _WordsTabState();
+}
+
+class _WordsTabState extends State<WordsTab> {
+  String query = '';
+
+  List<Widget> _searchResults() {
+    final q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    final hits = words.where((w) => w.nl.toLowerCase().contains(q) || w.en.toLowerCase().contains(q)).take(12).toList();
+    if (hits.isEmpty) return [const Padding(padding: EdgeInsets.all(8), child: Text('No words found.', style: TextStyle(color: t3)))];
+    return [
+      Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          children: hits.map((w) {
+            final c = Store.cards[w.id];
+            final queued = Store.user.priorityQueue.contains(w.id);
+            Widget action;
+            if (c != null && c.learned) {
+              action = const Text('🏆 learned', style: TextStyle(color: t3, fontSize: 12));
+            } else if (c != null) {
+              action = const Text('in progress', style: TextStyle(color: t3, fontSize: 12));
+            } else if (queued) {
+              action = const Text('added ✓', style: TextStyle(color: accentText, fontSize: 12, fontWeight: FontWeight.w700));
+            } else {
+              action = OutlinedButton(
+                style: OutlinedButton.styleFrom(foregroundColor: inkBlue, side: const BorderSide(color: inkBlue), visualDensity: VisualDensity.compact),
+                onPressed: () => setState(() => addToPriority(w.id)),
+                child: const Text('+ Learn'),
+              );
+            }
+            return ListTile(
+              dense: true,
+              title: Text(dispNL(w), style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text('${w.en} · ${w.level}', style: const TextStyle(color: t3, fontSize: 12)),
+              trailing: action,
+            );
+          }).toList(),
+        ),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final learned = Store.cards.values.where((c) => c.learned).length;
@@ -478,6 +654,20 @@ class WordsTab extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 14),
+      TextField(
+        onChanged: (v) => setState(() => query = v),
+        autocorrect: false,
+        decoration: InputDecoration(
+          hintText: 'Search a word to learn next…',
+          prefixIcon: const Icon(Icons.search, color: t3),
+          filled: true,
+          fillColor: surface,
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: cBorder)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: inkBlue)),
+        ),
+      ),
+      const SizedBox(height: 12),
+      ..._searchResults(),
       if (sections.isEmpty)
         const Padding(padding: EdgeInsets.only(top: 16), child: Text('Start a session and your words will show up here. 🌱', style: TextStyle(color: t3)))
       else
@@ -517,10 +707,20 @@ class _TrainingScreenState extends State<TrainingScreen> {
   bool done = false;
 
   McQuestion? mc;
+  String exType = 'PREVIEW';
   bool dehet = false;
   int? chosen;
   bool? lastCorrect;
   bool deHetPhase = false;
+  final _typeCtrl = TextEditingController();
+  bool typeAttempted = false;
+  String? typedFeedback;
+
+  @override
+  void dispose() {
+    _typeCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -547,12 +747,15 @@ class _TrainingScreenState extends State<TrainingScreen> {
       ex = r == 0 ? 'MC_NL_EN' : 'MC_EN_NL';
     } else {
       ex = exerciseFor(card, Store.user, true);
-      if (ex == 'TYPING') ex = 'MC_EN_NL'; // typing UI deferred in this build
     }
     chosen = null;
     lastCorrect = null;
     deHetPhase = false;
-    if (ex == 'PREVIEW') {
+    typeAttempted = false;
+    typedFeedback = null;
+    _typeCtrl.clear();
+    exType = ex;
+    if (ex == 'PREVIEW' || ex == 'TYPING') {
       mc = null;
     } else {
       final dir = ex == 'MC_NL_EN' ? 'NL_EN' : 'EN_NL';
@@ -708,10 +911,15 @@ class _TrainingScreenState extends State<TrainingScreen> {
     if (done) return _complete();
     if (queue.isEmpty) return const Scaffold(body: SizedBox());
     final w = byId[item.wordId]!;
-    final card = Store.ensure(item.wordId);
-    final drill = card.box == 0;
-    final isPreview = drill && !previewed.contains(item.wordId);
     final progress = (idx / queue.length).clamp(0.0, 1.0);
+    Widget content;
+    if (exType == 'PREVIEW') {
+      content = _preview(w);
+    } else if (exType == 'TYPING') {
+      content = _typingView(w);
+    } else {
+      content = _mcView(w);
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -724,7 +932,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
               const SizedBox(width: 12),
               Text('${idx + 1}/${queue.length}', style: const TextStyle(color: t3, fontWeight: FontWeight.w600, fontSize: 13)),
             ]),
-            Expanded(child: SingleChildScrollView(child: isPreview ? _preview(w) : _mcView(w))),
+            Expanded(child: SingleChildScrollView(child: content)),
           ]),
         ),
       ),
@@ -832,6 +1040,88 @@ class _TrainingScreenState extends State<TrainingScreen> {
         const SizedBox(height: 12),
         SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: inkBlue, minimumSize: const Size.fromHeight(52)), onPressed: _advance, child: const Text('Next ▸'))),
       ],
+    ]);
+  }
+
+  void _submitTyping(Word w, Wcard card) {
+    final v = judgeTyped(_typeCtrl.text, w);
+    if (v == 'CORRECT') {
+      final again = _scoreCorrect(w, card);
+      if (again) _requeueCurrent();
+      Store.save();
+      setState(() {
+        lastCorrect = true;
+        typedFeedback = 'Goed zo! ✓';
+      });
+      Future.delayed(const Duration(milliseconds: 700), _advance);
+    } else if (v == 'ALMOST' && !typeAttempted) {
+      setState(() {
+        typeAttempted = true;
+        typedFeedback = 'Almost! Check your spelling and try again.';
+      });
+    } else {
+      final again = _scoreWrong(w, card);
+      if (again) _requeueCurrent();
+      Store.save();
+      setState(() {
+        lastCorrect = false;
+        typedFeedback = "It's “${expectedTyped(w)}”";
+      });
+    }
+  }
+
+  Widget _typingView(Word w) {
+    final card = Store.ensure(item.wordId);
+    return Column(children: [
+      const SizedBox(height: 28),
+      const Text('Type the Dutch for', style: TextStyle(color: t3)),
+      const SizedBox(height: 8),
+      Text(w.en, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: t1), textAlign: TextAlign.center),
+      const SizedBox(height: 24),
+      TextField(
+        controller: _typeCtrl,
+        enabled: lastCorrect == null,
+        autofocus: true,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.none,
+        onSubmitted: (_) => lastCorrect == null ? _submitTyping(w, card) : null,
+        decoration: InputDecoration(
+          hintText: 'type here…',
+          filled: true,
+          fillColor: surface,
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: cBorder, width: 1.5)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: inkBlue, width: 1.5)),
+        ),
+        style: const TextStyle(fontSize: 19),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(w.type == 'noun' ? 'Tip: include the article (de / het).' : 'Tip: mind the spelling.', style: const TextStyle(color: t3, fontSize: 13)),
+      ),
+      if (typedFeedback != null) Padding(padding: const EdgeInsets.only(top: 14), child: Text(typedFeedback!, style: TextStyle(color: lastCorrect == true ? green : accentText, fontWeight: FontWeight.w600))),
+      const SizedBox(height: 16),
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: inkBlue, minimumSize: const Size.fromHeight(52)),
+          onPressed: lastCorrect == null ? () => _submitTyping(w, card) : _advance,
+          child: Text(lastCorrect == null ? 'Check' : 'Next ▸', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        ),
+      ),
+      if (lastCorrect == null)
+        TextButton(
+          onPressed: () {
+            final again = _scoreWrong(w, card);
+            if (again) _requeueCurrent();
+            Store.save();
+            setState(() {
+              lastCorrect = false;
+              typedFeedback = "It's “${expectedTyped(w)}”";
+            });
+          },
+          child: const Text('Show answer', style: TextStyle(color: t3)),
+        ),
     ]);
   }
 
