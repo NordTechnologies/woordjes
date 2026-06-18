@@ -12,11 +12,12 @@
     DEMOTE_STEP: 2,
     MIN_BOX_ON_WRONG: 1,
     NEW_WORDS_PER_DAY: 10,        // gradual: at most ~10 brand-new words per day
-    NEW_PER_SESSION: 7,          // max new words per session (Learning Expert rec)
-    NEW_REPS_TARGET: 3,          // times a new word must be answered right WITHIN the session before it graduates
-    MAX_DRILL_ATTEMPTS: 8,       // safety cap so a hard new word can't loop forever in one session
+    NEW_PER_SESSION: 5,          // max new words per session
+    NEW_REPS_TARGET: 2,          // times a new word must be answered right WITHIN the session before it graduates
+    MAX_DRILL_ATTEMPTS: 6,       // safety cap so a hard new word can't loop forever in one session
     REVIEW_BACKLOG_PAUSE: 30,
-    SESSION_SIZE: 18,            // max DISTINCT words per exercise (Learning Expert rec; hard ceiling 20)
+    SESSION_SIZE: 10,            // max DISTINCT words selected per exercise
+    MAX_SESSION_SCREENS: 22,     // hard cap on total screens shown per exercise (keeps it short; founder wants <=~20)
     OPTIONS_PER_MC: 4,
     LEARNED_MIN_BOX: 5,
     LEARNED_MIN_DAYS: 3,

@@ -1,7 +1,7 @@
 /* Woordjes v0 — UI controller. Wires engine.js to the screens in the Design Spec. */
 (function () {
   'use strict';
-  const BUILD = '2026-06-18.2';   // visible in Settings + console; bump on each deploy
+  const BUILD = '2026-06-18.3';   // visible in Settings + console; bump on each deploy
   try { console.log('Woordjes build', BUILD); } catch (e) {}
   const W = window.WJ;
   const $app = document.getElementById('app');
@@ -454,7 +454,7 @@
     S.session = {
       queue, idx: 0, previewed: new Set(), answered: 0, correct: 0,
       newIntroduced: 0, reviewed: new Set(), learnedNames: [], topicFilter: topicFilter || null,
-      newReps: {}, newAttempts: {}
+      newReps: {}, newAttempts: {}, shown: 0
     };
     $nav.hidden = true;
     $app.classList.add('training');
@@ -477,7 +477,10 @@
   }
 
   function renderStep() {
-    const s = S.session, item = curItem(), w = S.byId[item.wordId], card = ensureCard(item.wordId);
+    const s = S.session;
+    if (s.shown >= W.C.MAX_SESSION_SCREENS) { finishSession(); return; } // hard cap: keep the exercise short
+    s.shown++;
+    const item = curItem(), w = S.byId[item.wordId], card = ensureCard(item.wordId);
     // Brand-new words are DRILLED several times within the session (preview -> recognise ->
     // produce -> ...) before graduating to the next-day spaced schedule. Reviews use the box ramp.
     const drill = isDrill(card);
@@ -671,6 +674,12 @@
   // ---------- session complete ----------
   function finishSession() {
     const s = S.session;
+    // don't orphan new words that were started but not finished (cap hit / early exit):
+    // move them onto the next-day spaced schedule so they continue tomorrow.
+    s.previewed.forEach(id => {
+      const c = S.cards[id];
+      if (c && c.box === 0 && !c.learned) { c.box = 1; c.nextDue = W.addDays(S.today, 1); c.lastReviewed = S.today; }
+    });
     if (s.answered >= 1) W.updateStreak(S.user, S.today);
     S.user.onboarded = true;
     save();
@@ -721,33 +730,36 @@
   }
 
   // ---------- LEARNED ----------
+  function wordLine(w, mark) {
+    const disp = (w.type === 'noun' && w.article) ? w.article + ' ' + w.nl : w.nl;
+    return `<div class="learned-row"><span class="lmark">${mark}</span><span class="lw" lang="nl">${esc(disp)}</span><span class="lt" lang="en">${esc(w.en)}</span></div>`;
+  }
   function renderLearned() {
-    const learned = Object.values(S.cards).filter(c => c.learned).map(c => S.byId[c.wordId]).filter(Boolean);
-    const recent = learned.slice(-12).reverse();
-    const total = learned.length;
+    const totalLearned = Object.values(S.cards).filter(c => c.learned).length;
+    const totalProgress = Object.values(S.cards).filter(c => !c.learned).length;
     const totalWords = S.words.length;
-    const rows = recent.length ? recent.map(w => {
-      const art = w.type === 'noun' ? `<span class="badge ${w.article === 'het' ? 'het' : 'de'}" style="font-size:.65rem;padding:2px 8px">${w.article}</span>` : '';
-      return `<div class="learned-row"><span class="lw" lang="nl">${esc(w.nl)}</span> ${art}<span class="lt" lang="en">${esc(w.en)}</span></div>`;
-    }).join('') : `<p class="muted">No words learned yet — finish a few sessions and they'll appear here. 🌱</p>`;
 
-    const topicRows = S.topics.map(t => {
-      const tw = topicWords(t.id), l = topicLearned(t.id), pct = Math.round(100 * l / tw.length);
-      return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:.9rem">
-        <span>${t.emoji} ${esc(t.name)}</span><span class="muted">${l}/${tw.length}</span></div>
-        <span class="bar success"><span style="width:${pct}%"></span></span></div>`;
+    const sections = S.topics.map(t => {
+      const tw = topicWords(t.id);
+      const learned = tw.filter(w => S.cards[w.id] && S.cards[w.id].learned);
+      const prog = tw.filter(w => S.cards[w.id] && !S.cards[w.id].learned);
+      if (!learned.length && !prog.length) return '';
+      return `<details class="topic-acc">
+        <summary><span>${t.emoji} ${esc(t.name)}</span><span class="muted" style="font-size:.78rem">${learned.length} 🏆 · ${prog.length} learning</span></summary>
+        ${learned.length ? `<div class="acc-sub">Learned</div>${learned.map(w => wordLine(w, '🏆')).join('')}` : ''}
+        ${prog.length ? `<div class="acc-sub">In progress</div>${prog.map(w => wordLine(w, '•')).join('')}` : ''}
+      </details>`;
     }).join('');
 
     $app.innerHTML = `
-      <h1 class="title">Learned</h1>
-      <div class="card" style="display:flex;align-items:center;justify-content:space-between">
-        <div><div class="stat-big">${total}</div><div class="muted">of ${totalWords} words</div></div>
-        <div class="streak-pill big">🔥 ${S.user.currentStreak} days</div>
+      <h1 class="title">Your words</h1>
+      <div class="card" style="display:flex;justify-content:space-around;text-align:center">
+        <div><div class="stat-big">${totalLearned}</div><div class="muted">learned</div></div>
+        <div><div class="stat-big" style="color:var(--c-accent-text)">${totalProgress}</div><div class="muted">in progress</div></div>
+        <div><div class="stat-big" style="color:var(--t-3)">${totalWords}</div><div class="muted">total</div></div>
       </div>
-      <h2 class="section">By topic</h2>
-      <div class="card">${topicRows}</div>
-      <h2 class="section">Recently learned</h2>
-      <div class="card">${rows}</div>`;
+      <p class="muted" style="margin:14px 2px 6px;font-size:.85rem">Tap a topic to expand 🔥 ${S.user.currentStreak}-day streak</p>
+      ${sections || `<p class="muted" style="margin-top:16px">Start a session and your words will show up here. 🌱</p>`}`;
   }
 
   init();
