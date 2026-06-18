@@ -132,6 +132,8 @@ eq('all word ids unique', ids.size, words.length);
 ok('expanded to >= 170 words', words.length >= 170);
 ok('every word has nl+en', words.every(w => w.nl && w.en));
 ok('every noun has article+plural', words.filter(w => w.type === 'noun').every(w => (w.article === 'de' || w.article === 'het') && w.plural));
+ok('no noun has an inline article in nl', words.filter(w => w.type === 'noun').every(w => !/^(de|het)\s/i.test(w.nl)));
+ok('no duplicate nl across the set', new Set(words.map(w => w.nl.toLowerCase())).size === words.length);
 ok('every verb has 3 forms', words.filter(w => w.type === 'verb').every(w => w.pastSimple && w.perfect));
 const topicIds = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, '../public/data/words.json'), 'utf8')).topics.map(t => t.id));
 ok('every word maps to a real topic', words.every(w => topicIds.has(w.topic)));
