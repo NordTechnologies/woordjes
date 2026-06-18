@@ -217,6 +217,12 @@ h2.section { font-size:1.0625rem; font-weight:600; margin:24px 0 10px; color:var
 .navbtn.active { color:var(--c-primary); }
 .navbtn.active .navicon { filter:none; }
 
+/* ---- search ---- */
+.search-input { width:100%; min-height:46px; padding:12px 16px; font-size:1rem; font-family:var(--font);
+  border:1.5px solid var(--c-border); border-radius:var(--r-ctrl); background:var(--c-surface); color:var(--t-1);
+  margin-bottom:4px; }
+.search-input:focus { outline:none; border-color:var(--c-primary); }
+
 /* ---- onboarding / level ---- */
 .welcome { text-align:center; padding-top:48px; }
 .welcome-emoji { font-size:3.5rem; margin-bottom:8px; }
