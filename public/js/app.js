@@ -1,7 +1,7 @@
 /* Woordjes v0 — UI controller. Wires engine.js to the screens in the Design Spec. */
 (function () {
   'use strict';
-  const BUILD = '2026-06-17.8';   // visible in Settings + console; bump on each deploy
+  const BUILD = '2026-06-18.1';   // visible in Settings + console; bump on each deploy
   try { console.log('Woordjes build', BUILD); } catch (e) {}
   const W = window.WJ;
   const $app = document.getElementById('app');
@@ -31,6 +31,20 @@
   function speakBtn(text) { return `<button class="speak" type="button" data-speak="${esc(text)}" aria-label="Listen to pronunciation">🔊</button>`; }
   function save() { W.Store.saveCards(S.cards); W.Store.saveUser(S.user); idbBackup(); }
   function ensureCard(id) { if (!S.cards[id]) S.cards[id] = W.newCard(id, S.today); return S.cards[id]; }
+  function markKnown(id) { // user already knows this word -> straight to the Learned list
+    const c = ensureCard(id);
+    c.box = W.C.MAX_BOX; c.learned = true;
+    c.distinctCorrectDays = W.C.LEARNED_MIN_DAYS; c.lastCorrectDay = S.today;
+    c.consecutiveCorrect = W.C.LEARNED_MIN_DAYS; c.lastResult = 'CORRECT'; c.lastReviewed = S.today;
+    c.nextDue = W.addDays(S.today, W.C.INTERVALS_DAYS[W.C.MAX_BOX]);
+    save();
+  }
+  function addToPriority(id) { // queue a searched word to be introduced next
+    if (S.cards[id]) return false; // already started/learned
+    S.user.priorityQueue = S.user.priorityQueue || [];
+    if (S.user.priorityQueue.includes(id)) return false;
+    S.user.priorityQueue.push(id); save(); return true;
+  }
 
   // ---- durable storage: iOS standalone PWAs can wipe localStorage between launches,
   //      so we mirror progress into IndexedDB and rehydrate from it on startup ----
@@ -179,8 +193,37 @@
           <span class="bar success"><span style="width:${pct}%"></span></span>
         </span><span class="chev">›</span></button>`;
     }).join('');
-    $app.innerHTML = `<h1 class="title">Topics</h1><div class="list">${rows}</div>`;
+    $app.innerHTML = `<h1 class="title">Topics</h1>
+      <input id="search" class="search-input" type="search" placeholder="Search a word to learn next…" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <div id="searchResults"></div>
+      <div class="list">${rows}</div>`;
     $app.querySelectorAll('[data-topic]').forEach(b => b.addEventListener('click', () => renderTopicDetail(b.dataset.topic)));
+    const si = document.getElementById('search');
+    si.addEventListener('input', () => renderSearchResults(si.value.trim()));
+  }
+
+  function renderSearchResults(q) {
+    const box = document.getElementById('searchResults');
+    if (!box) return;
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    const ql = q.toLowerCase();
+    const hits = S.words.filter(w => w.nl.toLowerCase().includes(ql) || w.en.toLowerCase().includes(ql)).slice(0, 12);
+    if (!hits.length) { box.innerHTML = `<p class="muted" style="padding:8px 4px">No words found.</p>`; return; }
+    box.innerHTML = `<div class="list" style="margin:8px 0 16px">` + hits.map(w => {
+      const c = S.cards[w.id];
+      const queued = (S.user.priorityQueue || []).includes(w.id);
+      const disp = (w.type === 'noun' && w.article) ? w.article + ' ' + w.nl : w.nl;
+      let action;
+      if (c && c.learned) action = `<span class="muted" style="font-size:.8rem">🏆 learned</span>`;
+      else if (c) action = `<span class="muted" style="font-size:.8rem">in progress</span>`;
+      else if (queued) action = `<span class="chip-new">added ✓</span>`;
+      else action = `<button class="btn btn-secondary addw" data-id="${w.id}" style="width:auto;min-height:36px;padding:6px 14px">+ Learn</button>`;
+      return `<div class="row" style="cursor:default"><span class="row-main"><span class="row-title" lang="nl">${esc(disp)}</span>
+        <span class="row-meta"><span lang="en">${esc(w.en)}</span> · ${w.level}</span></span>${action}</div>`;
+    }).join('') + `</div>`;
+    box.querySelectorAll('.addw').forEach(b => b.addEventListener('click', () => {
+      if (addToPriority(+b.dataset.id)) { announce('Added to your next lesson'); renderSearchResults(q); }
+    }));
   }
 
   function renderTopicDetail(tid) {
@@ -259,6 +302,14 @@
           <span>Hard mode (typing)<br><span class="muted" style="font-size:.8rem">Type the Dutch word once you know it well</span></span>
           <input type="checkbox" id="hardmode" ${S.user.hardModeEnabled ? 'checked' : ''} style="transform:scale(1.4)">
         </label>
+        <label style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-top:1px solid var(--c-border);padding-top:14px;margin-top:14px">
+          <span>Daily reminder<br><span class="muted" style="font-size:.8rem">One gentle nudge (delivered in the installed app)</span></span>
+          <input type="checkbox" id="reminder" ${S.user.reminderOn ? 'checked' : ''} style="transform:scale(1.4)">
+        </label>
+        <div id="reminderTimeRow" style="display:${S.user.reminderOn ? 'flex' : 'none'};justify-content:space-between;align-items:center;margin-top:10px">
+          <span class="muted" style="font-size:.85rem">Reminder time</span>
+          <input type="time" id="reminderTime" value="${S.user.reminderTime || '19:00'}" style="font-size:1rem;padding:6px 8px;border:1px solid var(--c-border);border-radius:8px;background:var(--c-surface);color:var(--t-1)">
+        </div>
       </div>
       <h2 class="section">Reset</h2>
       <button class="btn btn-secondary" id="reset">Reset all progress</button>
@@ -266,6 +317,23 @@
     document.getElementById('back').addEventListener('click', () => go('today'));
     document.getElementById('changeLevel').addEventListener('click', () => renderLevelPick(true));
     document.getElementById('hardmode').addEventListener('change', e => { S.user.hardModeEnabled = e.target.checked; save(); });
+    const rem = document.getElementById('reminder');
+    rem.addEventListener('change', async e => {
+      if (e.target.checked) { // request permission IN CONTEXT (never on first launch)
+        let granted = true;
+        if ('Notification' in window) {
+          try { granted = Notification.permission === 'granted' ? true : (await Notification.requestPermission()) === 'granted'; }
+          catch (_) { granted = false; }
+        }
+        S.user.reminderOn = granted; e.target.checked = granted;
+        document.getElementById('reminderTimeRow').style.display = granted ? 'flex' : 'none';
+      } else {
+        S.user.reminderOn = false;
+        document.getElementById('reminderTimeRow').style.display = 'none';
+      }
+      save();
+    });
+    document.getElementById('reminderTime').addEventListener('change', e => { S.user.reminderTime = e.target.value; save(); });
     document.getElementById('reset').addEventListener('click', () => {
       if (confirm('Reset all progress? This cannot be undone.')) { W.Store.reset(); S.cards = {}; S.user = W.Store.loadUser(); go('today'); }
     });
@@ -431,13 +499,20 @@
       $app.innerHTML = topHTML + `<div class="card wordcard" style="margin-top:24px">
           <div class="muted" style="font-size:.85rem;margin-bottom:4px">New word</div>
           ${wordCardInner(w)}</div>
-        <button class="btn btn-primary" id="gotit" style="margin-top:20px">Got it ✓</button>`;
+        <button class="btn btn-primary" id="gotit" style="margin-top:20px">Got it ✓</button>
+        <button class="btn btn-ghost" id="knowit" style="margin-top:8px">I already know this</button>`;
       bindClose();
       document.getElementById('gotit').addEventListener('click', () => {
         s.previewed.add(item.wordId);
         if (!s.reviewed.has(item.wordId)) { s.newIntroduced++; }
         introduceNewDay();
         renderStep(); // now becomes MC_NL_EN
+      });
+      document.getElementById('knowit').addEventListener('click', () => {
+        markKnown(item.wordId);                 // skip drilling -> straight to Learned
+        s.knownSkipped = (s.knownSkipped || 0) + 1;
+        announce('Marked as known');
+        advance();
       });
       return;
     }

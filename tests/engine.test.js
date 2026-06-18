@@ -144,6 +144,13 @@ const uLvl = W.Store.loadUser(); uLvl.level = 'B1';
 const lvlSession = W.buildSession(words, {}, uLvl, '2026-06-17', { force: true });
 ok('new words respect chosen level (B1+)', lvlSession.filter(i => i.isNew).every(i => W.levelRank(WID[i.wordId].level) >= W.levelRank('B1')));
 
+// ---- priority queue (search-to-learn) introduces chosen words first ----
+const lastId = words[words.length - 1].id; // a late word that wouldn't normally appear first
+const uP = W.Store.loadUser(); uP.priorityQueue = [lastId];
+const ps = W.buildSession(words, {}, uP, '2026-06-17');
+ok('searched word jumps the new-word queue', ps.some(i => i.isNew && i.wordId === lastId));
+ok('session distinct words <= SESSION_SIZE cap', W.buildSession(words, {}, W.Store.loadUser(), '2026-06-17', { force: true }).length <= W.C.SESSION_SIZE);
+
 // ---- summary ----
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

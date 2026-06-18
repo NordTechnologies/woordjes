@@ -12,11 +12,11 @@
     DEMOTE_STEP: 2,
     MIN_BOX_ON_WRONG: 1,
     NEW_WORDS_PER_DAY: 10,        // gradual: at most ~10 brand-new words per day
-    NEW_PER_SESSION: 5,          // introduce a few new words per session
+    NEW_PER_SESSION: 7,          // max new words per session (Learning Expert rec)
     NEW_REPS_TARGET: 3,          // times a new word must be answered right WITHIN the session before it graduates
     MAX_DRILL_ATTEMPTS: 8,       // safety cap so a hard new word can't loop forever in one session
     REVIEW_BACKLOG_PAUSE: 30,
-    SESSION_SIZE: 15,
+    SESSION_SIZE: 18,            // max DISTINCT words per exercise (Learning Expert rec; hard ceiling 20)
     OPTIONS_PER_MC: 4,
     LEARNED_MIN_BOX: 5,
     LEARNED_MIN_DAYS: 3,
@@ -49,6 +49,8 @@
       freezeAvailable: false, daysSinceFreezeGranted: 0,
       hardModeEnabled: false,
       level: null,                 // CEFR level the learner starts new words from (null = A1/all)
+      priorityQueue: [],           // word ids the user searched + chose to learn next (jump the queue)
+      reminderOn: false, reminderTime: '19:00',
       lastNewDay: null, newCountToday: 0,
       reminderTime: null,
       onboarded: false
@@ -132,23 +134,25 @@
       .reverse()
       .map(c => ({ wordId: c.wordId, isNew: false }));
 
-    const reviews = due.slice(0, C.SESSION_SIZE);
-    let queue = reviews.slice();
-
     // New words: a few per session (gradual), capped per day. Each one is then DRILLED
     // several times within the session by the UI before it graduates to next-day review.
     // force (the "Learn new words" button) ignores the backlog pause but still respects the
-    // daily new-word cap so we never flood the learner.
+    // daily new-word cap so we never flood the learner. Total distinct words <= SESSION_SIZE.
     const nAllowed = Math.min(C.NEW_PER_SESSION, allowedNewToday(cards, user, today, due.length, force));
+    let newItems = [];
     if (nAllowed > 0) {
-      const minLvl = levelRank(user.level || 'A1'); // only introduce new words at/above the chosen level
-      const unseen = words
-        .filter(w => !cards[w.id] && levelRank(w.level) >= minLvl)
-        .sort((a, b) => a.listOrder - b.listOrder)
-        .slice(0, nAllowed)
-        .map(w => ({ wordId: w.id, isNew: true }));
-      queue = interleave(reviews, unseen); // interleave new words rather than dumping at the end
+      const minLvl = levelRank(user.level || 'A1');
+      const pq = user.priorityQueue || [];
+      const prioSet = new Set(pq);
+      // words the user searched + chose are introduced FIRST, regardless of level
+      const prioWords = words.filter(w => prioSet.has(w.id) && !cards[w.id])
+        .sort((a, b) => pq.indexOf(a.id) - pq.indexOf(b.id));
+      const levelWords = words.filter(w => !cards[w.id] && !prioSet.has(w.id) && levelRank(w.level) >= minLvl)
+        .sort((a, b) => a.listOrder - b.listOrder);
+      newItems = prioWords.concat(levelWords).slice(0, nAllowed).map(w => ({ wordId: w.id, isNew: true }));
     }
+    const reviews = due.slice(0, C.SESSION_SIZE - newItems.length);
+    let queue = interleave(reviews, newItems);
 
     // Forced "keep going": if still short (no due, cap-free, and all words already seen),
     // fill with existing cards for extra review — lowest box first, recently learned included.

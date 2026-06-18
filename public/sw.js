@@ -1,6 +1,6 @@
 /* Woordjes service worker — network-first so testers always get the latest version,
    with offline fallback from cache. (Registers only over HTTPS/localhost.) */
-const CACHE = 'woordjes-v4';
+const CACHE = 'woordjes-v5';
 const ASSETS = [
   './',
   './index.html',
