@@ -1,0 +1,617 @@
+                      NT2Lex: ACEFR-GradedLexicalResourceforDutchasaForeign
+                                        LanguageLinkedtoOpenDutchWordNet
+                           ¨        1,2,3a                          1,3b                     2        ´               1
+                       Anaıs Tack              ThomasFranc¸ois                Piet Desmet           Cedrick Fairon
+                             1                       ´
+                               CENTAL,Universite catholique de Louvain, Louvain-la-Neuve, Belgium
+                                     2 ITEC, imec, KU Leuven Campus Kulak, Kortrijk, Belgium
+                                     3 F.R.S.-FNRS a Research Fellow, b Postdoctoral Researcher
+                        {anais.tack,thomas.francois,cedrick.fairon}@uclouvain.be
+                                         {anais.tack,piet.desmet}@kuleuven.be
+                                      Abstract                          is a general framework that aims to provide a com-
+                     In this paper, we introduce NT2Lex, a novel        prehensive description of the types of (written or
+                     lexical resource for Dutch as a foreign lan-       spoken) discourse a learner at a particular proﬁ-
+                                                                        ciency level1 should be able to understand or pro-
+                     guage (NT2) which includes frequency dis-          duce. Based on the CEFR scale and as part of the
+                     tributions of 17,743 words and expressions                    2
+                     attested in expert-written textbook texts and      CEFRLex project, a number of graded lexical re-
+                     readers graded along the scale of the Common       sources have been developed for French (FLELex,
+                     European Framework of Reference (CEFR).            Franc¸ois et al., 2014), Swedish (SVALex, Franc¸ois
+                     In essence, the lexicon informs us about what      et al., 2016; SweLLex, Volodina et al., 2016) and
+                     kindofvocabularyshouldbeunderstoodwhen                                   ¨
+                     reading Dutch as a non-native reader at a par-     English (EFLLex, Durlich and Franc¸ois, 2018) as
+                     ticular proﬁciency level.                          a foreign language. These lexicons were compiled
+                                                                        from a corpus of L2 learning materials graded per
+                     The main novelty of the resource with respect      level of the CEFR scale. The materials either in-
+                     to the previously developed CEFR-graded lex-       clude reading activities in textbooks or simpliﬁed
+                     icons concerns the introduction of corpus-         readers (receptive graded lexicons; Franc¸ois et al.,
+                     based evidence for L2 word sense complexity                        ¨
+                     through the linkage to Open Dutch WordNet          2014, 2016; Durlich and Franc¸ois, 2018) or texts
+                     (Postma et al., 2016). The resource thus con-      written by learners (productive graded lexicons;
+                     tains, on top of the lemmatised and part-of-       Volodina et al., 2016). As a result, they inform
+                     speech tagged lexical entries, a total of 11,999   us about what kind of vocabulary should be un-
+                     unique word senses and 8,934 distinct synsets.     derstood or produced when reading or writing in a
+                 1    Introduction                                      foreign language at a particular proﬁciency level.
+                                                                           The lexical resources cited above have also
+                 In the recent years, a number of graded lexical re-    found their purpose as components of NLP-driven
+                 sources have been developed to further research        educational applications.    Up to date, we have
+                 on ﬁrst (L1) or second (L2) language complexity.       seensomeoftheresourcesbeingintegratedasfea-
+                 Such a graded lexicon can be deﬁned as a lexical       tures of a complex word identiﬁcation system for
+                 database describing the graded frequency distribu-     French (Tack et al., 2016a,b), as components in
+                 tions of lexemes as they are attested in authentic     a readability-driven learning platform for Swedish
+                 pedagogical material along the successive grade            ´
+                                                                        (Pilan et al., 2016a) or as part of an automated
+                 levels of a particular language curriculum. The                                                         ´
+                                                                        essay grading system for Swedish as well (Pilan
+                 gradedlexiconsthathavebeenbuiltontheselearn-           et al., 2016b). It is therefore clear to say that the
+                 ing scales therefore either speciﬁcally pertain to     scope of relevance of the graded lexical resources
+                 theeducationalprogrammeof(elementary)school            goeswellbeyondtheirapparentusefulnesstogain
+                             ´ ´
+                 children (Lete et al., 2004) or to the curriculum of   didactic insights into the complexity of the L2 cur-
+                 foreign language learners (Franc¸ois et al., 2014).    riculum.
+                    AsfortheL2languagecurriculuminparticular,
+                 one of the most widespread learning scales which          1TheCEFRscaleincludessixlevelsrangingfromtheele-
+                 has been used to date is the Common European           mentary (A1/A2), to the intermediate (B1/B2) and advanced
+                 Framework of Reference for Languages (Council          (C1/C2) levels. See Council of Europe (2001) for more de-
+                                                                        tails on the speciﬁc learning objectives per level.
+                 of Europe, 2001) or CEFR scale. The CEFR scale            2http://cental.uclouvain.be/cefrlex/
+                                                                    137
+                   Proceedings of the Thirteenth Workshop on Innovative Use of NLP for Building Educational Applications, pages 137–146
+                                                                  c
+                                NewOrleans, Louisiana, June 5, 2018. 2018 Association for Computational Linguistics
+                       Theprincipalaimofthispaperistoaugmentthe                     measuring the vocabulary size based on frequency
+                    CEFRLex project by introducing a novel graded                   bands attested in academic word lists drawn from
+                    receptive lexicon for Dutch as a second or foreign              a reference corpus of the target language (Nation
+                    language (Nederlands tweede taal, NT2), viz. the                and Waring, 1997). A second approach resides
+                    NT2Lex resource. Moreover, through the link-                    in the use of L2-speciﬁc pedagogical vocabulary
+                    age of NT2Lex to Open Dutch WordNet (ODWN)                      lists, which can be either expert-written such as the
+                    (Postmaetal., 2016), our additional objective is to             CEFRreference level descriptors (Marello, 2012;
+                    expand upon and to advance the current method-                  Milton, 2010) or corpus-based such as the English
+                    ology by introducing the ﬁrst lexicon with graded               Vocabulary Proﬁle (Capel, 2010, 2012). Finally,
+                    frequency distributions for word senses.                        the CEFRLexprojectproposesathirdapproachto
+                       The paper is structured as follows. The follow-              lexicon-driven evidence of vocabulary knowledge
+                    ingsection(Section2)presentsabird’seyereview                    through the use of graded and corpus-based recep-
+                    of the literature on L2 receptive vocabulary and on             tive lexicons (Franc¸ois et al., 2014).
+                    the importance of measuring word sense complex-                    An important aspect of vocabulary knowledge
+                    ity. In the subsequent sections, we will describe               that has mostly been overlooked in the lexicon-
+                    the revised methodologyusedtogenerateNT2Lex                     basedapproachesconcernsthedistinction of word
+                    (Section 3) and we will compare the resource to                 senses. Yet, the importance of taking into account
+                    the other CEFR-graded lexicons (Section 4). In                  form-meaning mappings has been well-evidenced
+                    the last section (Section 5), we will analyse the               in L2 reading comprehension. Qian (1999), for in-
+                    distribution of lexical entries in NT2Lex in light              stance, hightlighted that in the interplay between
+                    of standard indices of lexical complexity.                      vocabulary size and reading comprehension, the
+                    2    Background                                                 notion of depth of vocabulary knowledge also
+                                                                                    playsasigniﬁcantrole. Theessentialrequirements
+                    The construct of receptive vocabulary knowledge                 for deep vocabulary knowledge include – besides
+                    has been an important factor when it comes to de-               the surface-level (i.e. spelling and phonetics) and
+                    termining successful reading comprehension in a                 morphological features – a thorough mastery of
+                    foreign language. We know that the input con-                   the various semantic, collocational, discursive and
+                    veyed to foreign language learners through read-                other contextual aspects of the word. Zooming in
+                    ing or listening should be sufﬁciently comprehen-               on the ﬁrst two aspects in particular, he observed
+                    sible not only for the message to be understood,                a signiﬁcant addition of depth of vocabulary to ex-
+                    but also for subsequent implicit or incidental ac-              plain the variability in comprehension scores.
+                    quisition to occur (Krashen, 1989). The notion of                  The need to account for this semasiological
+                    breadth of vocabulary knowledge (or vocabulary                  variation when estimating word difﬁculty can be
+                    size) in particular plays an important role in pre-             traced as far back as to Tharp (1939). Indeed,
+                    dicting adequate comprehension of the L2 input.                 Tharphighlighted the drawbacks of deﬁning word
+                    For reading comprehension, we know that 98% of                  difﬁculty estimates by tallying the frequency of
+                    the running words in the text should be known,                  occurrence of similar word forms that are inher-
+                    whichamountstoavocabularysizeof8,000word                        ently polysemous. Subsequently, various studies
+                    families (Laufer and Ravenhorst-Kalovski, 2010).                have sought to parameterise the extent of sema-
+                    However, the extent of vocabulary size is also                  siological and onomasiological variation in text-
+                    heavily conditioned on the well-known variability               level readability assessment using polysemic, hy-
+                    in the interlanguage. It is therefore vital to ob-              pernymic and other features based on WordNet
+                    tain correct and relevant estimates of vocabulary               (Fellbaum, 1998), the most notable contribution
+                    knowledge when deﬁning the lexical adequacy of                  of which relates to Coh-Metrix (Graesser et al.,
+                    a speciﬁc reading activity.                                     2004). As for word-level readability assessment,
+                       Various lexicon-based approaches have been                   a number of studies on lexical simpliﬁcation have
+                    considered to estimate the vocabulary knowledge                 made advances in the ranking of the difﬁculty of
+                    that should be covered when learning or teaching                synonymsbasedoncontextualfactors (Jauhar and
+                    a foreign language.3 The ﬁrst approach consists in              Specia, 2012) or based on a lexical database of
+                       3For a more detailed overview on these lexicon-based ap-     synonyms ranked according to elementary grade
+                    proaches, we refer the reader to Franc¸ois et al. (2014).       levels (Gala et al., 2013).
+                                                                                138
+                                 level               A1          A2           B1          B2           C1         total            3.2       Deﬁnition of Lexical Entries
+                                 # tokens           17,878     205,035     153,537       78,439       6,199     461,088
+                                 # readers                5          22          11            6           1          45           To deﬁne the list of lexical entries which make up
+                                 # documents             53        447          306         110           10         926
+                                                      Table 1: Corpus statistics                                                   the resource, we proceeded to some extra correc-
+                                                                                                                                   tion, simpliﬁcation and ﬁltering of the previously
+                                                                                                                                   tagged and word-sense disambiguated texts.
+                               3       Methodology                                                                                 Lemmata We ﬁrst ruled out all                                                       non-
+                               Inviewoftheneedforestimatingwordsensecom-                                                           alphanumeric                  entries           such         as       punctuation
+                               plexity in L2 learning addressed hereabove, we                                                      marks, Arabic numerals, as well as non-standard
+                               developed a graded lexical resource for learners                                                    word forms and abbreviations commonly found
+                               of Dutch L2 which includes lexical entries linked                                                   in Dutch chatspeak. We also simpliﬁed similar
+                               to Open Dutch WordNet (ODWN) (Postma et al.,                                                        alphanumeric numbers (e.g. 4de, 5de, ‘4th, 5th’)
+                               2016). The methodology for compiling a graded                                                       as belonging to the same lexical entry [digit]de.
+                                                                                              ´ ´                                      We then resolved some speciﬁcities of the
+                               lexical resource can be found in Lete et al. (2004);                                                Dutch compounding system. On the one hand, we
+                               Franc¸ois et al. (2014). Here, we will brieﬂy sum-                                                  decided to split a number of compounds with an
+                               marisethemethodofestimatinggradedlexicalen-                                                         optional parenthesised stem. For a lemma such
+                               tries, focusing on the particularities for Dutch.                                                   as (studie)keuze (‘(study) choice’) for instance,
+                               3.1       Data                                                                                      we counted the occurrence as two separate lex-
+                                                                                                                                   emes: keuze (‘choice’) and studiekeuze (‘study
+                               Weuseda461,088-token corpus of CEFR-graded                                                          choice’). On the other hand, we also resolved the
+                               readers and textbooks for Dutch as a foreign lan-                                                   omission of shared stems in a number of coordi-
+                               guage, ranging from the A1 to the C1 levels and                                                     nated compounds (e.g. binnenland vs. binnen- en
+                               with a mixture of writings in Netherlandic and                                                                                                                 5
+                                                                                                                                   buitenland, ‘home and abroad’).
+                               Belgian Dutch (Table 1).
+                                                                                                                                   Parts of speech                   The Frog part-of-speech tagger
+                               Preprocessing                   Typographical and language er-                                      is based on the CGN (Corpus Gesproken Neder-
+                               rors as well as other idiosyncracies observed in the                                                lands) tagset (Van Eynde, 2004). The CGN tagset
+                               OCR-ised texts were manually corrected. Tonic                                                       is quite extensive in that it counts over 320 tags
+                               diacritics commonlyusedtoindicatestressinwrit-                                                      and thus accounts for a number of detailed lexical
+                               ten Dutch (e.g. veel/veel, ‘many’) were also man-                                                   and morphological features. However, we found
+                                                                       ´´
+                               ually removed, excluding the mandatory diaere-                                                      it irrelevant to keep all of these precise features in
+                               ses (e.g. efﬁcient, ‘efﬁcient’) and accents in loan                                                 the resource. We therefore decided to simplify the
+                                                         ¨
+                               words (e.g. cafe, ‘pub’). All texts were lemma-                                                     tagset to a set of 37 tags (Table 2). Consequently,
+                                                            ´
+                               tised and part-of-speech tagged and multi-word                                                      all other special symbols not covered by the tagset
+                               units were automatically identiﬁed with the Frog                                                    were ﬁltered from the resource.
+                               tagger (van den Bosch et al., 2007).                                                                    We should note that the multi-word units
+                                    The tagged texts were then fed to a word-sense                                                 detected           by Frog tagger were not tagged
+                                                                                    4                                              with a speciﬁc part of speech,                                            but       with
+                               disambiguation (WSD) tool . The tool is based
+                               on a one-vs.-rest SVM classiﬁer trained on the                                                      a “multi-tag” part of speech (e.g. door en
+                               DutchSemCor(Vossenetal.,2012)andincludesa                                                           door, VZ(ﬁn) VG(neven) VZ(ﬁn), ‘through and
+                               dictionary of 92,617 lexemes and 117,225 senses,                                                    through’). For all of these multi-word units, we
+                               of which 52,430 (45%) seem to be matched to                                                         also subsequently transposed each one of the indi-
+                               ODWNsynsets. To increase the tool’s coverage                                                        vidual tags according to our simpliﬁed tagset.
+                               with ODWN, we also included all monosemous                                                          Word senses                   Finally, all lexical entries which
+                               ODWN entries which were not included in the                                                         were disambiguated for word senses were thus
+                               tool. In total, 76% of all distinct lexical units (ad-                                              supplemented with a tuple of ODWN sense and
+                               jectives, adverbs, nouns and verbs) were disam-
+                               biguated for word senses.                                                                                5To this end, automatic compound splitting was per-
+                                                                                                                                   formed using the publicly available rule-based compound
+                                    4                                            ´
+                                      ThetoolwascreatedbyRubenIzquierdoandisavailable                                              splitter for Dutch (http://ilps.science.uva.nl/
+                               on http://github.com/cltl/svm_wsd.                                                                  resources/compound-splitter-nl/)
+                                                                                                                            139
+                        simpliﬁed tag         part of speech                     #37         writtenlanguageproﬁciencyinlearnercorporaap-
+                        N(soort/eigen)        noun(common/proper)                #2          pears to be closely linked to the scope of lexical
+                        ADJ()                 adjective                          #1          dispersion: the more dispersed the use of a word,
+                        WW()                  verb                               #1
+                        TW(hoofd/rang)        numeral (card./ord.)               #2          the better it is mastered.
+                        VNW(...)              pronoun                            #20            For written language comprehension on the
+                        LID(bep/onbep)        article (def./indef.)              #2          other hand, we could also state that the extent of
+                        VZ(init/ﬁn/versm)     preposition (initial/ﬁnal/fused)   #3          lexical dispersion in readers and textbooks gives
+                        VG(neven/onder)       conjunction (coord./subord.)       #2
+                        BW()                  adverb                             #1          us a better view on what kind of vocabulary is
+                        TSW()                 interjection                       #1          subject to being well-understood at a particular
+                        SPEC(deeleigen)       part of proper noun                #1          proﬁciency level.          As a consequence, the lexi-
+                        LET()                 punctuation                        #1          cal frequencies we want to use to gain insights
+                               Table 2: List of simpliﬁed CGN tags.                          in non-native language comprehension should be
+                                                                                             adjusted to take into account lexical dispersion
+                      corresponding synset ids (e.g. lezen-v-1, eng-30-                      as well.       The following dispersion (Dentry,level)
+                      00625119-v, ‘to read’).            The synset ids include              and adjusted frequency indices (Uentry,level and
+                      either the WordNet 3.0 offset (eng-30) or the                          SFIentry,level) were computed following Carroll
+                                                                                             et al. (1971). In the following formulae, N                  de-
+                      ODWN 1.0 offset (odwn-10) otherwise.                      How-                                                                 level
+                                                                                             notes the number of words in the level and n de-
+                      ever, we should note that not all WordNet and                                                                                      i
+                      ODWNsynsetsincludedinOpenDutchWordNet                                  notes the number of words in document i of all
+                      have a corresponding lexical entry. We therefore                       documents d in that level.
+                      completed those entries with their corresponding                                                d f·ln(f )
+                                                                                                                           ∑ i     i           1
+                                                                                                                      i=1          
+                      sense number (e.g. overduidelijk, obvious.a.01) in                          D= ln( f)−                               ·          (3.3.2)
+                                                                                                              ∑               ∑f             ln(d)
+                      NLTK’s Open Multilingual WordNet (Bird et al.,                                            "                                            !#
+                      2009). Finally, in the absence of an ODWN equiv-                                       6                                      d
+                      alent to DutchSemCor, we decided to keep the                                U= 10           F·D+(1−D)·                 1         f ·n
+                                                                                                         N                                 N      ∑ i i
+                      original sense id obtained through WSD for the                                       level                             level i=1
+                      sake of completeness and for future compatibility                                                                               (3.3.3)
+                      (e.g. overbodig, d a-415574, ‘superﬂuous’).                              SFI =10·[log (U)+4]                                    (3.3.4)
+                                                                                                                  10
+                      3.3     Lexical Frequencies and Weighting                              4    Resource Description
+                      After having deﬁned the set of lexical entries,                        We compiled two separate versions of NT2Lex.
+                      wecomputed their graded frequency distributions                        Aﬁrst version contains only the lemmatised and
+                      across the ﬁve CEFR levels attested in the corpus.                     part-of-speech tagged entries (NT2Lex-CGN)
+                      The following statistics were computed for each                        and is thus similar to the other graded lexicons
+                      lexical entry and per each level.                                      previously developed in the CEFRLex project
+                      Rawfrequency ThefrequencyFentry,level issim-                           (cf. supra).      The word-sense disambiguated en-
+                      ply computed as the number of times the entry oc-                      tries, on the other hand, have been added to
+                      curs in the level, which amounts to summing up                         a second version of the resource (NT2Lex-
+                      the vector f of the entry’s frequencies of occur-                      CGN+ODWN)(see Table 3 for an example). A
+                      rence f in document i for all d documents in that                      comparative overview of the number of entries
+                      level (see Table 1 on the preceding page).                             in both versions of NT2Lex and in the other re-
+                                                                                             sources can be found in Table 5 on page 6. A more
+                                        F            = f= d f                  (3.3.1)       detailed description of the resource is given here-
+                                          entry,level   ∑        ∑ i                         inbelow and in the following section.
+                                                                i=1
+                      Dispersion and adjusted frequencies                    The ex-         NT2Lex-CGN The ﬁrst version of NT2lex
+                      clusive use of raw frequencies to observe lexical                      counts 15,227 entries. The total number of en-
+                      distributions has been subjected to much debate                        tries in the resource is therefore similar to the re-
+                      in corpus linguistics and especially when applied                      sources developed for English and Swedish, al-
+                      to mining corpora to futher L2 research. Indeed,                       thoughslightlylowerthanforFrench. Notsurpris-
+                      Gries (2008) previously stated that the extent of                      ingly, the majority of the entries contain lexical
+                                                                                        140
+                          lemma           pos                 sense-id           synset-id                gloss          U@A1 U@A2 U@B1 U@B2 U@C1 U@total
+                          in zwang        VZ(init) N(soort)   in zwang-n-1       eng-30-14411884-n        ‘in vogue’        -         -        -         -         22          0
+                          omgangstaal     N(soort)            omgangstaal-n-1    eng-30-07157123-n        ‘vernacular’      -         -         -         26       -           3
+                          pakken          WW()                pakken-v-1         odwn-10-101230891-v      ‘grab’             35      117       101         5       -          99
+                          pakken          WW()                pakken-v-10        eng-30-01100145-v        ‘defeat’          -          51       12       -         -          28
+                          zijn            VNW(bez,det)        -                  -                        ‘his’           3,349    7,900     4,124     3,479    4,308      5,798
+                          zijn            WW()                zijn-v-1           eng-30-02603699-v        ‘exist’         2,094    1,647     1,423     1,253    1,335      1,601
+                         Table 3: Example of entries in NT2Lex-CGN+ODWN with their graded adjusted frequencies U. A
+                         columnwithglosses was added for illustrative purposes.
+                         words and the number of grammatical entries also                                                   A1        A2        B1       B2        C1       total
+                         remains strongly comparable across all resources.                                 # entries       1,189     7,630    10,160     9,366    1,841    17,743
+                                                                                                           # senses          849     5,705     7,272     6,517    1,302    11,999
+                             There is a striking difference however in the                                 # polysemes       139       828       979      771       118     1,451
+                         number of multi-word entries that are included in                                 # synsets         658     4,450     5,465     4,936    1,046     8,934
+                         NT2Lex and in the other resources. Only 459 of                                  Table 4: The number of word senses, polysemes
+                         the entries are multi-word units, contrary to 2,038                             (entries with >1 sense) and unique synsets in
+                         for Frenchand1,450forSwedish. Themulti-word                                     NT2Lex-CGN+ODWN
+                         units that are included in the resource mostly per-
+                         tain to well-known named entities (e.g. Olympis-
+                         che Spelen, ‘Olympic Games’) and other phrasal
+                         verbs (e.g. voorzien van, ‘to provide’), adverbs
+                         (e.g. om het even, ‘all the same’), etc.
+                             This difference could be explained by the fact
+                         that the majority of the compound words which
+                         are multi-word units in other languages (such as
+                         in French or English) are one-word units or ag-
+                         glutinative compounds in Dutch (e.g. afvalverwi-
+                         jderingsstructuur, ‘waste disposal structure’). We
+                         observe that 4,431 (31%) of the single-word en-
+                         tries in NT2Lex are in fact compounds. As for the
+                         Swedish language, where the compounding sys-
+                         temissimilartoDutch,wecouldattributethisdis-
+                         parity to the fact that different taggers were used to
+                         detectmulti-wordunits. Indeed,therecallandpre-                                  Figure1: Screenshot of an online query in NT2Lex
+                         cision of multi-word identiﬁcation depend heavily                               for the verbs lezen (‘to read’) and begrijpen
+                         on the assumptions made by the tagger to resolve                                (‘to understand’)
+                         the sequential ambiguity, contrary to the aggluti-
+                         native compounds, which do not need to be dis-
+                         ambiguated in this case.                                                            Table 4 also shows the number of unique con-
+                                                                                                         cepts (# synsets) included per level and in total.
+                         NT2Lex-CGN+ODWN Theword-sensedisam-                                             Weobservethat the resource includes a high vari-
+                         biguated version of NT2Lex counts 17,743 en-                                    ety of concepts, with 8,934 distinct synsets out of
+                         tries in all, with an extra 2,516 lexical entries and                           11,999 word senses.
+                         with 1,454 polysemous entries (with at least two
+                         senses).       Table 4 shows the distribution of pol-                           Online query and annotation tools                           Both ver-
+                         ysemous entries across all levels.                     Although all             sions of the resource will be made available for
+                         of these polysemous entries are lexical ones, we                                non-commercial use in the CEFRLex project.6
+                         shouldnotethatsomemulti-wordentrieshavealso                                     Similar to the previous resources, a number of
+                         been disambiguated for word senses, but none of                                 online tools will be made available for teachers
+                         themarepolysemous. Themostpolysemousentry                                       and/or researchers to query the lexical database
+                         in the resource is the entry pakken (verb, ‘to take                             and to annotate a text using NT2Lex (Figure 1).
+                         / grab / defeat / hinder / etc.’) which has a total of
+                         10 different senses attested in the resource.                                       6http://cental.uclouvain.be/nt2lex/
+                                                                                                    141
+                               resource                                             NT2Lex                                                     FLELex                  SVALex                  EFLLex
+                                version                          CGN                                        CGN+ODWN                             CRF                       /                      /
+                               # entries                        15,227                                         17,743                           17,871                  15,681                  15,281
+                                 lexical                        14,368                                         16,884                           17,404                  15,291                  14,857
+                              grammat.                             400                                            400                              467                     390                    424
+                               multi-w.                            459                                            459                            2,038                   1,450                   3,852
+                                  levels    #       new   (%)    compound     hapax    >10        #      new    (%)    hapax     >10        #      new    (%)      #       new   (%)       #      new    (%)
+                                    A1      953      953(1.00)         70       313      225    1,189    1,189(1.00)      427     228     4,976    4,976(1.00)    1,157    1,157(1.00)   2,395    2,395(1.00)
+                                    A2     6,220   5,383(0.87)      1,224     2,482    1,231    7,630    6,580(0.86)    3,073    1,386    6,995    3,516(0.50)    3,327    2,432(0.73)   4,205    2,478(0.59)
+                                    B1     8,559   4,879(0.57)      1,997     3,936    1,081   10,160    5,571(0.55)    4,739    1,128   10,780    4,970(0.46)    6,554    4,332(0.66)   5,607    2,740(0.49)
+                                    B2     8,172   3,641(0.45)      1,861     4,362      638    9,366    3,998(0.43)    5,092     619     7,349    1,653(0.22)    8,728    4,553(0.52)   8,228    3,935(0.48)
+                                    C1     1,680     371(0.22)        252     1,127       63    1,841      405(0.22)    1,282       62    8,348    2,122(0.25)    7,564    3,160(0.41)   9,232    3,733(0.40)
+                                    C2      -        -     -          -         -        -        -        -     -       -        -       7,433      634(0.09)     -        -     -        -        -     -
+                             Table 5: A comparative overview of NT2Lex and the other lexicons in terms of the number (#) of entries
+                             per level (including new entries, compounds, hapaxes and entries with a frequency greater than 10), as
+                             wellasthenumberoflexical(adjectives,adverbs,nounsandverbs),grammaticalandmulti-wordentries.
+                                                                            85
+                                            r = 0.69                        80                                               1.0        r2 = 0.83                                              r2 = 0.15
+                                100                                                                                                                                     80
+                                                                            75                                               0.8
+                                                                           x                                                                                            60
+                               x 80                                         70                                               0.6                                       y
+                                                                           subtle65
+                               subtle                                                                                        0.4                                        40
+                                 60                                         60                                              dispersion                                 frequenc
+                                                                                                                             0.2                                        20
+                                                                            55
+                                 40                                         50                                               0.0                                         0
+                                      0    20   40    60   80                     A1   A2   B1   B2   C1 TOTAL                    0    20    40   60    80                  0       10      20       30
+                                               frequency                                      level                                        frequency                                 wordlength
+                             (a)      correlation          between (b) median of Subtlex fre-                            Figure 3: Zipﬁan effects for adjusted frequencies
+                             NT2LexandSubtlex                           quencies per level
+                                                                                                                         (SFI), dispersions (D) and word lengths for all en-
+                             Figure 2: Comparison of NT2Lex and Subtlex-NL                                               tries in NT2Lex
+                             standardised frequencies
+                                                                                                                         2010), we observe a positive value for the Pearson
+                             5      Analysis                                                                             correlation coefﬁcient (r = .69, p < .0017; Fig-
+                             In the next sections, we will compare the distri-                                           ure 2a). This shows us that even though the ad-
+                             bution of lexical entries in NT2Lex in light of a                                           justed frequencies were estimated on a relatively
+                             number of standard indices of lexical complex-                                              small corpus, they are still very much coherent
+                             ity.     We will only report statistics for the most                                        withthefrequenciesestimatedforthesameentries
+                             complete version of our resource, i.e. NT2Lex-                                              on a reference corpus. Moreover, Figure 2b also
+                             CGN+ODWN.                                                                                   illustrates that the average of Subtlex-NL frequen-
+                                                                                                                         cies also decreases per level, with the exception of
+                             5.1      FrequencyEffects                                                                   the C1 level. A possible reason for this is that the
+                             As a ﬁrst means of analysis, we aim to examine                                              C1 subcorpus is the most restricted in size due to
+                             the coherence of the frequency distributions in the                                         the limited availability of C1-level readers.
+                             resource with respect to the word frequency effect                                          Dispersion and word familiarity                                   Because of
+                             in second language processing, which states that                                            lacking experimental data on actual word familiar-
+                             wordsthataremorefrequentandmorefamiliarare                                                  ity in Dutch L2, we make a simplifying assump-
+                             moreeasily processed by a learner (Ellis, 2002).                                            tion here and use our dispersion metric as a mea-
+                                                                                                                         sure of theoretical word familiarity: the more the
+                             Lexical frequency                     To compare the frequency                              word is dispersed across the L2 documents, the
+                             distributions in the resource, we use the stan-                                             morefamiliar it should be to a learner in general.
+                             dard frequency index (SFI, Formula 3.3.4), which                                                 We observe from Figure 3 that this theoretical
+                             mightbebestsuitedtomeasurethedesiredeffects:                                                word familiarity accounts for about 83% in the
+                             a value of 100, 90, 80, ..., 40 on the standard scale                                       distribution of the adjusted frequencies.                                  In this
+                             indicates that the entry respectively occurs once                                           respect, we also observe an interesting split in
+                             every 100, 101, 102, ..., 106 entries, and so forth.
+                                 When comparing the standardised frequency                                                    7For reasons of comparability with Subtlex, which does
+                                                                                                                         not include frequencies for word senses, we report the corre-
+                             distributions with Subtlex-NL (Keuleers et al.,                                             lation coefﬁcient for the non-WSD version of the resource.
+                                                                                                                   142
+                                                                                                   1.0                                 method
+                                                                                                                                           LS1
+                                          1.0                                                                                              LS2                     15.0                                                    60            r = 0.67
+                                                                                                   0.8
+                                          0.8                                                                                                                      12.5
+                                                                                                   0.6                                                                                                                     40
+                                          0.6                                                                                                                      10.0                                                   ymy
+                                                                        r2 = 0.34
+                                          0.4                                                     sophistication0.4                                                 7.5
+                                         sophistication                                                                                                           polysemy                                                synon20
+                                          0.2                                                                                                                       5.0
+                                                                                                   0.2
+                                                                                                                                                                    2.5
+                                          0.0                                                                                                                                                     r = 0.66                   0
+                                                                                                   0.0                                                              0.0
+                                                0.00    0.25    0.50    0.75    1.00                       A1     A2    B1     B2     C1 TOTAL                                2      4      6      8     10                          2      4      6      8      10
+                                                            dispersion                                                     level                                                      polysemes                                              synonyms
+                                     (a) degree of lexical disper- (b) lexical sophistication per                                                             (a) number of polysemes per (b) number of synonyms per
+                                     sionandlexicalsophistication level based on Lu (2012)’s ra-                                                              entry in function of ODWN entry in function of ODWN
+                                                                                              tios                                                            polysemy                                                 synonymy
+                                     Figure 4: The interplay between lexical dispersion                                                                                                         4.0
+                                     and lexical sophistication in NT2Lex                                                                                                                       3.5
+                                                                                                                                                                                                3.0
+                                                                                                                                                                                                2.5
+                                                                                                                                                                                                2.0
+                                                                                                                                                                                               polysemes
+                                     the normalised frequency distribution which orig-                                                                                                          1.5
+                                     inates from the way the adjusted frequencies were                                                                                                          1.0
+                                                                                                                                                                                                0.5
+                                     computed (U; Formula 3.3.3). When D > 0, the                                                                                                                       A1     A2    B1     B2    C1 TOTAL
+                                     inﬂuence of the raw frequency F increases be-                                                                                                                                      level
+                                     tween 40 < SFI < 100. Conversely, when D = 0,                                                                                                         (c) average polysemes / level
+                                     the raw frequencies are not taken into account, but                                                                           Figure 5: Polysemy and synonymy in NT2Lex
+                                     are drawn from a weigthed (Gaussian) frequency
+                                     distribution (0 < SFI < 40) instead.
+                                     Zipﬁaneffects                           Fromtheseassociationsbetween                                                     fewer sophisticated words have been attested due
+                                     dispersion and standardised frequencies, we can                                                                          to the limitations highlighted earlier.
+                                     also observe a number of Zipﬁan effects.                                                                  In-            5.2          Semasio-onomasiological Indices
+                                     deed, for all entries which have a non-zero disper-                                                                      In addition to the word frequency effect of L2 vo-
+                                     sion (range 40 < SFI < 100), Zipf’s distribution                                                                         cabulary learning, we also investigated the inter-
+                                     (Zipf, 1949) applies in the standard frequency in-                                                                       play of form-meaning mappings in the resource.
+                                     dex. Moreover, these frequencies are in turn nega-                                                                             Weobserve on the one hand that the degree of
+                                     tively correlated with word length: the shorter the                                                                      polysemy and synonymy attested in the resource
+                                     word,themorefrequent(r=−.39; p<.001). We                                                                                 is strongly correlated to the degree of synonymy
+                                     take these results as a proof for the consistency of                                                                     and polysemy that is expected in the Open Dutch
+                                     the resource.                                                                                                            WordNet (ODWN) (Figure 5). We can therefore
+                                     Lexical sophistication                                     As a ﬁnal note on the                                         conclude that in addition to the correlation be-
+                                     issue of word frequency, we compare the lexi-                                                                            tween the estimated frequencies and Subtlex-NL
+                                     cal sophistication ratio of the entries with a ba-                                                                       (cf. supra), the word senses included in the re-
+                                     sic word list8 of the 2,000 most frequent Dutch                                                                          source are also consistent with the structure of a
+                                     words according to the Basiswoordenboek Neder-                                                                           general semantic network.
+                                     lands (Kleijn and Nieuwberg, 1993).9 Figure 4a                                                                                 However, the lower extent of onomasiologi-
+                                     showsthatthemoredispersed(andhencethemore                                                                                cal variation (i.e. meaning-to-form mappings) in
+                                     familiar) the entry in the corpus, the least sophisti-                                                                   NT2Lex compared to ODWN synonymy (Fig-
+                                     cated the entry is. Moreover, we also observe that                                                                       ure 5b) might be indicative of the specialised na-
+                                     the proportion of sophisticated entries (i.e. that go                                                                    ture of the resource in that for a deﬁned set of con-
+                                     beyond the 2,000 most frequent words) increases                                                                          cepts it includes a limited range of lexicalizations,
+                                     perlevel(Figure4b),exceptfortheC1levelwhere                                                                              which are likely to be speciﬁc to the L2.
+                                                                                                                                                                    As for semasiological variation (i.e. form-to-
+                                            8http://www.dikverhaar.nl/wp-content/                                                                             meaningmappings)inNT2Lex,weobserveanin-
+                                     uploads/Basiswoordenlijst_2000_                                                                                          teresting decreasing trend in the degree of poly-
+                                     frequente_meest_woorden.pdf                                                                                              semyperlevel(Figure5c). Thishighlightsthefact
+                                            9Weshouldnotethat61ofthe2,000basicwordformsare
+                                     not attested in NT2Lex.                                                                                                  that the lexical stock of elementary L2 texts con-
+                                                                                                                                                     143
+                          0.30                 A1          0.40
+                                               A2          0.35
+                          0.25                 B1                                               5                r2 = 0.17       1.0
+                                               B2                                                                                                 r2 = 0.22
+                                                           0.30
+                          0.20                 C1                                                                                0.8
+                                               TOTAL       0.25                                 4
+                         density0.15                      density0.20     A1                                                     0.6
+                                                           0.15           A2                    3
+                          0.10                                            B1                                                     0.4
+                                                           0.10           B2                   concreteness                     dispersion
+                          0.05                                            C1                    2                                0.2
+                                                           0.05           TOTAL
+                          0.00                             0.00                                 1                                0.0
+                             0     5    10    15   20          0      2      4      6
+                                    age of acquisition                concreteness                    5     10    15                    5    10    15
+                                                                                                       age of acquisition                age of acquisition
+                      (a) age of acquisition per level   (b) concreteness per level           (a) with word concreteness         (b) with word familiarity
+                          Figure 6: Psycholinguistic norms in NT2Lex                                Figure 7: Age of acquisition in NT2Lex
+                      tains more ambiguous entries, which in turn tend                       lexical frequency and sophistication, the distribu-
+                      to be more easily processed (Millis and Bution,                        tion of the concreteness norms at C1 are similar
+                      1989). However, no other signiﬁcant effects in                         to what is expected. The most basic levels, on the
+                      terms of synonymy, polysemy or hypernymy were                          other hand, contain a lower proportion of abstract
+                      observed.                                                              words, but the difference between the number of
+                      5.3     Psycholinguistic Norms                                         concrete and abstract words appears to be propor-
+                                                                                             tionally less clear-cut.
+                      Finally, to investigate the interplay of different                     6    Conclusion
+                      psycholinguistic norms in the resource, we use
+                      a lexical database of age of acquisition and con-                      In this paper, we presented a new graded lexical
+                      creteness normsforDutch(Brysbaertetal.,2014).                          resource for Dutch as a foreign language (NT2)
+                      Figure 6 shows the distribution of the norms per                       basedontheproﬁciencyscaleoftheCommonEu-
+                      each attested level in the resource.                                   ropean Framework of Reference (CEFR). Similar
+                      Ageofacquisition            Weobservethatthevastma-                    to the previous CEFR-graded lexicons for French,
+                      jority of the lexical stock in the elementary levels                   Swedish and English, the NT2Lex resource con-
+                      (i.e A1/A2) contain words which are acquired the                       tains graded frequencydistributions per lexical en-
+                      earliest by native speakers as well, approximately                     try which are estimated on L2 readers and text-
+                      around the age of ﬁve, whereas the entries in the                      book texts targeting a speciﬁc level on the CEFR
+                      intermediate levels (i.e. B1/B2) levels are acquired                   scale. The novelty of the NT2Lex resource with
+                      later, approximatelybetweenages5and10. More-                           respect to the common methodology of generating
+                      over, the more concrete the word, the earlier it is                    graded lexicons is concerned with the fact that the
+                      acquired (Figure 7a), which is consistent with pre-                    lexical entries are disambiguated for word senses
+                      vious observations (Crossley et al., 2009). The                        andarealsolinkedtoWordNetsynsets. Weargued
+                      earlier the word is acquired, the more familiar it                     that this linkage gives us a better insight into word
+                      is according to its dispersion in the resource (Fig-                   sense complexity in a foreign language.
+                      ure 7b). As for the C1 level, we observe a simi-                          Wefoundthattheestimatedfrequencyandword
+                      lar trend, except for a smaller proportion of entries                  sense distributions are in line with what one ex-
+                      that are acquired earlier as well (with a higher con-                  pects to observe in the target language.                 More-
+                      centration around the age of 5), which might also                      over, the distributions of lexical entries per level
+                      explain the higher average of Subtlex frequencies                      in NT2Lex also appeared to be consistent with
+                      and the lower degree of sophistication attested at                     previous ﬁndings in terms of lexical complex-
+                      this level (cf. supra).                                                ity. As regards the features of lexical ambiguity,
+                                                                                             age of acquisition and concreteness, we observed
+                      Concreteness          As regards word concreteness,                    that the lexical entries in the most basic levels of
+                      we observe on the one hand that the highest lev-                       the resource (i.e. A1/A2) are more polysemous
+                      els (i.e. B2/C1) contain a considerably higher pro-                    and acquired the earliest by non-native speakers,
+                      portion of abstract (less concrete) words.                  This       whereas the lexical entries in the more advanced
+                      observation highlights the fact that, even though                      levels (i.e. B2/C1) portray a signiﬁcantly higher
+                      the C1 level includes some outliers on the level of                    degree of abstractness and are acquired at a later
+                                                                                        144
+                    developmental stage.                                             Scott Crossley, Tom Salsbury, and Danielle McNa-
+                       We could thus conclude that the resource en-                     mara. 2009.      Measuring L2 Lexical Growth Us-
+                    ables us to get a better grasp on what kind of vo-                  ingHypernymicRelationships. LanguageLearning,
+                    cabularyshouldbeunderstoodaprioriwhenread-                          59(2):307–334.
+                                                                                              ¨
+                    ingDutchasaforeignlanguageataparticularpro-                      LuiseDurlichandThomasFranc¸ois.2018. EFLLex: A
+                    ﬁciency level. Of course, we should highlight that                  Graded Lexical Resource for Learners of English as
+                    the assumptions that can be drawn are still lim-                    a Foreign Language. In Proceedings of the 11th In-
+                                                                                        ternational Conference on Language Resources and
+                    ited in the sense that they are mainly based on                     Evaluation (LREC 2018), Miyazaki, Japan. To ap-
+                    expert knowledge drawn from pedagogical texts.                      pear.
+                    Indeed, we lack extensive experimental data on                   Nick C. Ellis. 2002. Frequency Effects in Language
+                    what vocabulary is effectively understood when                      Processing: A Review with Implications for Theo-
+                    reading Dutch at a particular proﬁciency level and                  ries of Implicit and Explicit Language Acquisition.
+                    by a speciﬁc learner depending on his/her char-                     StudiesinSecondLanguageAcquisition,24(2):143–
+                    acteristics (e.g. native language, age, experience,                 188.
+                    etc.).  As a future perspective, we therefore aim                Christiane Fellbaum. 1998. WordNet: An Electronic
+                    to contrast the knowledge we gained through the                     Lexical Database. MIT Press, Cambridge, MA.
+                    resource with this kind of receptive learner data.               Thomas Franc¸ois, Nuria Gala, Patrick Watrin, and
+                                                                                          ´
+                                                                                        Cedrick Fairon. 2014.        FLELex: a graded lexi-
+                    Acknowledgments                                                     cal resource for French foreign learners.        In Pro-
+                                                                                        ceedings of the 9th International Conference on
+                    This research was funded by an F.R.S.-FNRS re-                      Language Resources and Evaluation (LREC 2014),
+                    search grant. We would like to thank Anne-Sophie                    pages 3766–3773, Reykjavik, Iceland. European
+                                                                                        Language Resources Association (ELRA).
+                    Desmet and Dorian Ricci for their helping hand                                                                 ´     ´
+                    and valuable input in the preparation of the re-                 Thomas Franc¸ois, Elena Volodina, Ildiko Pilan, and
+                                                                                             ¨
+                    sources and tools.                                                  Anaıs Tack. 2016. SVALex: A CEFR-Graded Lexi-
+                                                                                        cal Resource for Swedish Foreign and Second Lan-
+                                                                                        guage Learners. In Proceedings of the 10th Inter-
+                                                                                        national Conference on Language Resources and
+                                                                                                                                                ˇ
+                    References                                                          Evaluation (LREC 2016), pages 213–219, Portoroz,
+                                                                                        Slovenia. European Language Resources Associa-
+                    Steven Bird, Ewan Klein, and Edward Loper. 2009.                    tion (ELRA).
+                       Natural Language Processing with Python, 1 edi-                                                           ´
+                       tion. O’Reilly, Beijing ; Cambridge Mass.                     Nuria Gala, Thomas Franc¸ois, and Cedrick Fairon.
+                                                                                        2013. TowardsaFrenchlexiconwithdifﬁcultymea-
+                    Antal van den Bosch, Bertjan Busser, Sander Canisius,               sures: NLP helping to bridge the gap between tra-
+                       and Walter Daelemans. 2007. An efﬁcient memory-                  ditional dictionaries and specialized lexicons.        In
+                       based morphosyntactic tagger and parser for Dutch.               Electronic lexicography in the 21st century: think-
+                       In Selected Papers of the 17th Computational Lin-                ing outside the paper : proceedings of the eLex 2013
+                       guistics in the Netherlands Meeting, pages 99–114.               conference, 17-19 October 2013, Tallinn, Estonia,
+                                                                                        2013, pags. 132-151, pages 132–151.
+                                                                                                 ´
+                                               ¨
+                    Marc Brysbaert, Michael Stevens, Simon De Deyne,                 Arthur C. Graesser, Danielle S. McNamara, Max M.
+                       Wouter Voorspoels, and Gert Storms. 2014. Norms                  Louwerse, and Zhiqiang Cai. 2004.           Coh-Metrix:
+                       of age of acquisition and concreteness for 30,000                Analysis of text on cohesion and language. Behav-
+                       Dutch words. Acta Psychologica, 150:80–84.                       ior Research Methods, Instruments, & Computers,
+                    Annette Capel. 2010.        A1–B2 vocabulary: insights              36(2):193–202.
+                       andissuesarising from the English Proﬁle Wordlists            Stefan Th. Gries. 2008. Dispersions and adjusted fre-
+                       project. English Proﬁle Journal, 1(01).                          quencies in corpora. International Journal of Cor-
+                    Annette Capel. 2012. Completing the English Vocabu-                 pus Linguistics, 13(4):403–437.
+                       lary Proﬁle: C1 and C2 vocabulary. English Proﬁle             Sujay Kumar Jauhar and Lucia Specia. 2012. UOW-
+                       Journal, 3.                                                      SHEF: SimpLex – Lexical Simplicity Ranking
+                                                                                        Based on Contextual and Psycholinguistic Features.
+                    John B. Carroll, Peter Davies, and Barry Richman.                   In Proceedings of the First Joint Conference on Lex-
+                       1971.     The American Heritage Word Frequency                   ical and Computational Semantics - Volume 1: Pro-
+                       Book. Houghton Mifﬂin, Boston.                                   ceedings of the Main Conference and the Shared
+                                                                                        Task, and Volume 2: Proceedings of the Sixth In-
+                    Council of Europe. 2001. Common European Frame-                     ternational Workshop on Semantic Evaluation, Se-
+                       work of Reference for Languages. Cambridge Uni-                  mEval ’12, pages 477–481, Stroudsburg, PA, USA.
+                       versity Press, Cambridge, UK.                                    Association for Computational Linguistics.
+                                                                                 145
+                                                                                              ´      ´
+                     Emmanuel Keuleers, Marc Brysbaert, and Boris New.                   Ildiko Pilan, Elena Volodina, and Torsten Zesch.
+                        2010. SUBTLEX-NL: A new measure for Dutch                           2016b. Predicting proﬁciency levels in learner writ-
+                        word frequency based on ﬁlm subtitles. Behavior                     ings by transferring a linguistic complexity model
+                        Research Methods, 42(3):643–650.                                    from expert-written coursebooks.          In Proceedings
+                                                                                            of the 26th International Conference on Computa-
+                     P. de Kleijn and E. Nieuwberg. 1993. Basiswoorden-                     tional Linguistics (COLING’16), pages 2101–2111,
+                        boek Nederlands. Wolters Leuven, Leuven.                            Osaka, Japan. Association for Computational Lin-
+                                                                                            guistics.
+                     Stephen Krashen. 1989. We Acquire Vocabulary and                    M. C. Postma, E. Miltenburg, R. Segers, A. Schoen,
+                        Spelling by Reading: Additional Evidence for the                    and P. T. J. M. Vossen. 2016. Open Dutch WordNet.
+                        Input Hypothesis. The Modern Language Journal,                      In Proceedings of the Eigth Global Wordnet Confer-
+                        73(4):440–464.                                                      ence.
+                     Batia Laufer and Geke C. Ravenhorst-Kalovski. 2010.                 David Qian. 1999. Assessing the Roles of Depth and
+                        Lexical Threshold Revisited: Lexical Text Cover-                    BreadthofVocabularyKnowledgeinReadingCom-
+                        age, Learners’ Vocabulary Size and Reading Com-                     prehension. Canadian Modern Language Review,
+                        prehension.       Reading in a Foreign Language,                    56(2):282–308.
+                        22(1):15–30.
+                                                                                              ¨
+                                                                                         Anaıs Tack, Thomas Franc¸ois, Anne-Laure Ligozat,
+                     Xiaofei Lu. 2012. The Relationship of Lexical Rich-                           ´
+                                                                                            andCedrickFairon.2016a. EvaluatingLexicalSim-
+                        ness to the Quality of ESL Learners’ Oral Narra-                    pliﬁcation and Vocabulary Knowledge for Learners
+                        tives.   The Modern Language Journal, 96(2):190–                    of French: Possibilities of Using the FLELex Re-
+                        208.                                                                source.    In Proceedings of the 10th International
+                                                                                            Conference on Language Resources and Evaluation
+                                  ´ ´
+                     Bernard Lete, Liliane Sprenger-Charolles, and Pas-                                                                 ˇ
+                                                                                            (LREC2016),pages230–236,Portoroz, Slovenia.
+                                  ´
+                        cale Cole. 2004. MANULEX: a grade-level lexi-
+                                                                                              ¨
+                        cal database from French elementary school readers.              Anaıs Tack, Thomas Franc¸ois, Anne-Laure Ligozat,
+                                                                                                    ´                                  `
+                        Behavior Research Methods, Instruments, & Com-                      and Cedrick Fairon. 2016b.           Modeles adaptatifs
+                                                                                                     ´                                    ´
+                        puters: A Journal of the Psychonomic Society, Inc,                  pour predire automatiquement la competence lexi-
+                                                                                                                                         ´      `
+                        36(1):156–166.                                                      cale d’un apprenant de franc¸ais langue etrangere. In
+                                                                                            Actes de la 23eme Conference sur le Traitement Au-
+                                                                                                            `          ´
+                     CarlaMarello.2012. WordlistsinReferenceLevelDe-                        tomatiquedesLanguesNaturelles(TALN’16),pages
+                        scriptions of CEFR (CommonEuropeanFramework                         221–234, Paris, France.
+                        of Reference for Languages). In Proceedings of the               James B. Tharp. 1939. The Measurement of Vocab-
+                        XVEuralexInternational Congress, pages 328–335.                     ulary Difﬁculty.      The Modern Language Journal,
+                     Michelle L. Millis and Scoti B. Bution. 1989.             The          24(3):169–178.
+                        effect of polysemy on lexical decision time: Now                 Frank Van Eynde. 2004. Part of speech tagging en
+                        you see it, now you don’t. Memory & Cognition,                      lemmatisering van het Corpus Gesproken Neder-
+                        17(2):141–147.                                                      lands. Technical report, Centrum voor Computer-
+                                                                                                  ¨
+                     James Milton. 2010. The development of vocabulary                      linguıstiek, KU Leuven, Belgium.
+                        breadth across the CEFR levels. A common basis                                            ´     ´
+                                                                                         Elena Volodina, Ildiko Pilan, Lorena Llozhi, Baptiste
+                        for the elaboration of language syllabuses, curricu-                Degryse, and Thomas Franc¸ois. 2016. SweLLex:
+                        lum guidelines, examinations, and textbooks across                  second language learners’ productive vocabulary.
+                        Europe. In Inge Bartning, Maisa Martin, and In-                     In Proceedings of the joint 5th NLP4CALL and
+                        eke Vedder, editors, Communicative proﬁciency and                   1st NLP4LA workshops (SLTC 2016), pages 76–
+                        linguistic development: Intersections between SLA                             ˚                 ¨
+                                                                                            84, Umea,Sweden.LinkopingUniversityElectronic
+                        and language testing research, number 1 in Eurosla                  Press.
+                        Monographs Series, pages 211–232. European Sec-
+                                                                                                                  ¨ ¨         ´
+                        ondLanguageAssociation.                                          Piek Vossen, Attila Gorog, Ruben Izquierdo, and An-
+                                                                                            tal Van den Bosch. 2012. DutchSemCor: Target-
+                     Paul Nation and Robert Waring. 1997.              Vocabulary           ing the ideal sense-tagged corpus. In Proceedings of
+                        size, text coverage, and word lists.           In Norbert           theEightInternationalConferenceonLanguageRe-
+                        Schmitt and Michael McCarthy, editors, Vocabu-                      sources and Evaluation (LREC’12), pages 584–589,
+                        lary: description, acquisition and pedagogy, Cam-                   Istanbul, Turkey. EuropeanLanguageResourcesAs-
+                        bridge language teaching library. Cambridge Univ.                   sociation (ELRA).
+                        Press, Cambridge.                                                George K. Zipf. 1949. Human Behavior and the Prin-
+                           ´    ´                                                           ciple of Least Effort. Addison-Wesley, Cambridge,
+                     Ildiko Pilan, Elena Volodina, and Lars Borin. 2016a.                   Massachusetts.
+                        Candidate sentence selection for language learning
+                        exercises: from a comprehensive framework to an
+                        empirical evaluation. TAL, 57(3):67–91.
+                                                                                    146

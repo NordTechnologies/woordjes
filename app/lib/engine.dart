@@ -14,6 +14,7 @@ class C {
   static const int reviewBacklogPause = 30;
   static const int sessionSize = 10;
   static const int maxSessionScreens = 22;
+  static const int maxInProgress = 15; // cap on words being learned at once (Learning Expert)
   static const int optionsPerMc = 4;
   static const int learnedMinBox = 5;
   static const int learnedMinDays = 3;
@@ -35,12 +36,18 @@ String todayStr([DateTime? d]) {
   return '${d.year}-${_two(d.month)}-${_two(d.day)}';
 }
 
+// Parse as UTC midnight so day differences are exact (no DST 23/25-hour skew,
+// which could otherwise reset a streak on clock-change days).
 DateTime _parse(String s) {
   final p = s.split('-').map(int.parse).toList();
-  return DateTime(p[0], p[1], p[2]);
+  return DateTime.utc(p[0], p[1], p[2]);
 }
 
-String addDays(String s, int n) => todayStr(_parse(s).add(Duration(days: n)));
+String addDays(String s, int n) {
+  final d = _parse(s).add(Duration(days: n));
+  return '${d.year}-${_two(d.month)}-${_two(d.day)}';
+}
+
 int dayDiff(String from, String to) => _parse(to).difference(_parse(from)).inDays;
 
 // ---- models ----
@@ -250,7 +257,11 @@ List<SessionItem> buildSession(List<Word> words, Map<int, Wcard> cards, UserStat
     ..sort((a, b) => dayDiff(b.nextDue!, today) - dayDiff(a.nextDue!, today)); // most overdue first
   final dueItems = due.map((c) => SessionItem(c.wordId, false)).toList();
 
-  final nAllowed = min(C.newPerSession, allowedNewToday(user, today, due.length, force));
+  // Don't introduce new words once too many are already "in progress" (not yet learned).
+  // New words resume steadily as in-progress words graduate to Learned.
+  final inProgress = cards.values.where((c) => !c.learned).length;
+  final slots = C.maxInProgress - inProgress;
+  final nAllowed = [C.newPerSession, allowedNewToday(user, today, due.length, force), slots < 0 ? 0 : slots].reduce(min);
   var newItems = <SessionItem>[];
   if (nAllowed > 0) {
     final minLvl = levelRank(user.level ?? 'A1');

@@ -122,4 +122,34 @@ void main() {
     final ps = buildSession(words, {}, uP, '2026-06-17');
     expect(ps.any((i) => i.isNew && i.wordId == lastId), true);
   });
+
+  test('in-progress cap stops new words', () {
+    final words = List.generate(60, (i) => noun(i + 1, 'w$i', 'm$i', 'de', 'w${i}s', topic: 't', level: 'A1', order: i + 1));
+    // 15 cards in progress (started, not learned) -> no new words
+    final cards = <int, Wcard>{};
+    for (var i = 1; i <= C.maxInProgress; i++) {
+      cards[i] = newCard(i, '2026-06-17')..box = 1..nextDue = '2026-12-01';
+    }
+    final full = buildSession(words, cards, UserState(), '2026-06-17', force: true);
+    expect(full.where((i) => i.isNew).length, 0); // capped
+    // free up a slot -> new words flow again
+    cards[1]!.learned = true;
+    final freed = buildSession(words, cards, UserState(), '2026-06-17', force: true);
+    expect(freed.where((i) => i.isNew).isNotEmpty, true);
+  });
+
+  test('streak increments across consecutive days', () {
+    final u = UserState();
+    for (var d = 0; d < 5; d++) {
+      updateStreak(u, addDays('2026-06-17', d));
+    }
+    expect(u.currentStreak, 5); // 5 consecutive days
+    // a 2-day gap (no freeze) resets
+    final u2 = UserState()
+      ..currentStreak = 5
+      ..lastCompletedDay = '2026-06-21'
+      ..freezeAvailable = false;
+    updateStreak(u2, '2026-06-24');
+    expect(u2.currentStreak, 1);
+  });
 }

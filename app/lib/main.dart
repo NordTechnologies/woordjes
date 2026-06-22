@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'engine.dart';
 import 'notifications.dart';
+import 'logger.dart';
 
 // ---- audio (tap to hear the Dutch word) ----
 final FlutterTts _tts = FlutterTts();
@@ -82,6 +84,7 @@ Future<void> main() async {
   topics = (data['topics'] as List)
       .map((t) => {'id': t['id'] as String, 'name': t['name'] as String, 'emoji': t['emoji'] as String})
       .toList();
+  await initLog();
   await Store.init();
   if (Store.user.reminderOn) {
     final p = Store.user.reminderTime.split(':');
@@ -552,34 +555,129 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
           ]),
         ),
-        const SizedBox(height: 16),
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(foregroundColor: inkBlue, side: const BorderSide(color: inkBlue, width: 1.5), minimumSize: const Size.fromHeight(50)),
-          onPressed: () async {
-            final ok = await showDialog<bool>(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: const Text('Reset all progress?'),
-                content: const Text('This cannot be undone.'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
-                ],
-              ),
-            );
-            if (ok == true) {
-              Store.cards.clear();
-              Store.user = UserState();
-              await Store.save();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const Root()), (r) => false);
-              }
-            }
-          },
-          child: const Text('Reset all progress'),
+        const SizedBox(height: 18),
+        const Padding(padding: EdgeInsets.only(left: 4, bottom: 6), child: Text('Help & feedback', style: TextStyle(color: t3, fontSize: 13, fontWeight: FontWeight.w600))),
+        Card(
+          child: Column(children: [
+            ListTile(
+              leading: const Icon(Icons.mail_outline, color: inkBlue),
+              title: const Text('Contact the developer'),
+              subtitle: const Text('Send feedback or report a problem'),
+              onTap: _contactDeveloper,
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.description_outlined, color: inkBlue),
+              title: const Text('Send logs to developer'),
+              subtitle: const Text('Shares an on-device log to help diagnose issues'),
+              onTap: () => shareLogs(),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.info_outline, color: inkBlue),
+              title: const Text('About & word levels'),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoScreen())),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 30),
+        Center(child: TextButton(onPressed: _confirmReset, child: const Text('Reset all progress', style: TextStyle(color: t3, fontSize: 13)))),
+        const SizedBox(height: 6),
+        Text('Woordjes · build $buildVersion · ${words.length} words', style: const TextStyle(color: t3, fontSize: 12), textAlign: TextAlign.center),
+      ]),
+    );
+  }
+
+  Future<void> _contactDeveloper() async {
+    final uri = Uri(scheme: 'mailto', path: 'nord_technologies@proton.me', queryParameters: {'subject': 'Woordjes feedback (build $buildVersion)'});
+    try {
+      await launchUrl(uri);
+    } catch (_) {}
+  }
+
+  Future<void> _confirmReset() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reset all progress?'),
+        content: const Text('This permanently erases your streak, learned words and level. This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(style: TextButton.styleFrom(foregroundColor: coral), onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      logEvent('progress reset by user');
+      Store.cards.clear();
+      Store.user = UserState();
+      await Store.save();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const Root()), (r) => false);
+      }
+    }
+  }
+}
+
+// ---- Info / About (word-level methodology + sources) ----
+class InfoScreen extends StatelessWidget {
+  const InfoScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    Future<void> open(String url) async {
+      try {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } catch (_) {}
+    }
+    return Scaffold(
+      appBar: AppBar(title: const Text('About'), backgroundColor: bg, foregroundColor: t1, elevation: 0),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        const Text('How word levels are decided', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: t1)),
+        const SizedBox(height: 10),
+        const Text(
+          'Every word in Woordjes is tagged with a CEFR level (A1–B2). These levels are '
+          'data-driven, not guessed: each word is placed at the level where it first appears '
+          'with real frequency in graded Dutch-as-a-second-language texts. That keeps the '
+          'levels honest for the inburgering exam (which targets A2/B1) and means your '
+          'placement test and lessons start you in the right place.',
+          style: TextStyle(color: t2, height: 1.5),
         ),
         const SizedBox(height: 16),
-        Text('Woordjes · build $buildVersion · ${words.length} words', style: const TextStyle(color: t3, fontSize: 12), textAlign: TextAlign.center),
+        const Text('Source', style: TextStyle(fontWeight: FontWeight.w700, color: t1)),
+        const SizedBox(height: 6),
+        const Text(
+          'Levels are derived from NT2Lex, a CEFR-graded frequency lexicon of Dutch as a '
+          'foreign language, from the CEFRLex project (UCLouvain / CENTAL).',
+          style: TextStyle(color: t2, height: 1.5),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => open('https://cental.uclouvain.be/cefrlex/nt2lex/'),
+          icon: const Icon(Icons.link, color: inkBlue),
+          label: const Text('cental.uclouvain.be/cefrlex/nt2lex', style: TextStyle(color: inkBlue)),
+        ),
+        const SizedBox(height: 16),
+        const Text('Paper', style: TextStyle(fontWeight: FontWeight.w700, color: t1)),
+        const SizedBox(height: 6),
+        const Text(
+          'Tack, A., François, T., Desmet, P., & Fairon, C. (2018). NT2Lex: A CEFR-Graded '
+          'Lexical Resource for Dutch as a Foreign Language Linked to Open Dutch WordNet. '
+          'In Proceedings of the 13th Workshop on Innovative Use of NLP for Building '
+          'Educational Applications (BEA), ACL.',
+          style: TextStyle(color: t2, height: 1.5),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => open('https://aclanthology.org/W18-0514/'),
+          icon: const Icon(Icons.article_outlined, color: inkBlue),
+          label: const Text('Read the paper (ACL Anthology)', style: TextStyle(color: inkBlue)),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Word translations and grammar (de/het, plurals, verb forms) are generated and '
+          'auto-checked, with a native-speaker review before public release.',
+          style: TextStyle(color: t3, fontSize: 13, height: 1.5),
+        ),
       ]),
     );
   }
@@ -728,6 +826,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
   int? chosen;
   bool? lastCorrect;
   bool deHetPhase = false;
+  String? deHetChosen;
   final _typeCtrl = TextEditingController();
   bool typeAttempted = false;
   String? typedFeedback;
@@ -767,6 +866,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
     chosen = null;
     lastCorrect = null;
     deHetPhase = false;
+    deHetChosen = null;
     typeAttempted = false;
     typedFeedback = null;
     _typeCtrl.clear();
@@ -893,6 +993,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
     final w = byId[item.wordId]!;
     final card = Store.ensure(item.wordId);
     final right = a == w.article;
+    deHetChosen = a;
     if (right) {
       final again = _scoreCorrect(w, card);
       if (again) _requeueCurrent();
@@ -916,7 +1017,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
         c.lastReviewed = today;
       }
     }
-    if (answered >= 1) updateStreak(Store.user, today);
+    if (answered >= 1) {
+      final before = Store.user.currentStreak;
+      final lastDay = Store.user.lastCompletedDay;
+      updateStreak(Store.user, today);
+      logEvent('session done: answered=$answered correct=$correct new=$newIntroduced | streak $before->${Store.user.currentStreak} (today=$today lastDay=$lastDay)');
+    } else {
+      logEvent('session ended with 0 answers (streak unchanged)');
+    }
     Store.user.onboarded = true;
     await Store.save();
     setState(() => done = true);
@@ -1042,11 +1150,27 @@ class _TrainingScreenState extends State<TrainingScreen> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(60), side: const BorderSide(color: inkBlue, width: 1.5), foregroundColor: inkBlue),
-                onPressed: lastCorrect == null ? () => _onDeHet(a) : null,
-                child: Text(a, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-              ),
+              child: Builder(builder: (_) {
+                Color bgc = surface, bc = inkBlue, fg = inkBlue;
+                if (lastCorrect != null) {
+                  if (a == w.article) {
+                    bgc = greenSoft;
+                    bc = green;
+                    fg = t1;
+                  } else if (a == deHetChosen) {
+                    bgc = coralSoft;
+                    bc = coral;
+                    fg = t1;
+                  } else {
+                    bc = cBorder;
+                  }
+                }
+                return OutlinedButton(
+                  style: OutlinedButton.styleFrom(backgroundColor: bgc, minimumSize: const Size.fromHeight(60), side: BorderSide(color: bc, width: 1.5), foregroundColor: fg),
+                  onPressed: lastCorrect == null ? () => _onDeHet(a) : null,
+                  child: Text(a, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                );
+              }),
             ),
           ),
       ]),
