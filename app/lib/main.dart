@@ -134,13 +134,14 @@ const Map<String, String> levelDesc = {
 
 class OnboardingFlow extends StatefulWidget {
   final VoidCallback onDone;
-  const OnboardingFlow({super.key, required this.onDone});
+  final String startPhase; // 'welcome' (first run) or 'placement' (re-evaluate)
+  const OnboardingFlow({super.key, required this.onDone, this.startPhase = 'welcome'});
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
-  String phase = 'welcome';
+  late String phase;
   List<Word> qWords = [];
   int qi = 0;
   final Map<String, int> correctByLevel = {'A1': 0, 'A2': 0, 'B1': 0, 'B2': 0};
@@ -148,7 +149,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int? chosen;
   String resultLevel = 'A1';
 
-  void _startPlacement() {
+  @override
+  void initState() {
+    super.initState();
+    phase = widget.startPhase;
+    if (phase == 'placement') _prepPlacement(); // re-evaluate: jump straight into the check
+  }
+
+  void _prepPlacement() {
     final qs = <Word>[];
     for (final lv in levels) {
       final pool = words.where((w) => w.level == lv).toList()..shuffle();
@@ -159,6 +167,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     qi = 0;
     q = generateMC(qWords[0], words, 'NL_EN');
     chosen = null;
+  }
+
+  void _startPlacement() {
+    _prepPlacement();
     setState(() => phase = 'placement');
   }
 
@@ -288,15 +300,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     ]);
   }
 
-  Widget _result() => Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Text('🎯', style: TextStyle(fontSize: 48)),
-        const SizedBox(height: 12),
-        Text("You're starting at $resultLevel", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: t1)),
-        const SizedBox(height: 8),
-        Text("We'll suggest new words from $resultLevel and up — change it anytime in settings.", style: const TextStyle(color: t2), textAlign: TextAlign.center),
-        const SizedBox(height: 24),
-        SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: inkBlue, minimumSize: const Size.fromHeight(52)), onPressed: widget.onDone, child: const Text('Start learning ▸', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)))),
-      ]);
+  Widget _result() {
+    final reeval = widget.startPhase == 'placement';
+    return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      const Text('🎯', style: TextStyle(fontSize: 48)),
+      const SizedBox(height: 12),
+      Text("You're ${reeval ? 'now at' : 'starting at'} $resultLevel", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: t1)),
+      const SizedBox(height: 8),
+      Text("We'll suggest new words from $resultLevel and up — change it anytime in settings.", style: const TextStyle(color: t2), textAlign: TextAlign.center),
+      const SizedBox(height: 24),
+      SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: inkBlue, minimumSize: const Size.fromHeight(52)), onPressed: widget.onDone, child: Text(reeval ? 'Done' : 'Start learning ▸', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)))),
+    ]);
+  }
 }
 
 class HomeShell extends StatefulWidget {
@@ -506,6 +521,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: const Text('Your level'),
               subtitle: const Text('New words come from here and up'),
               trailing: OutlinedButton(onPressed: () => showLevelSheet(context, () => setState(() {})), child: Text(u.level ?? 'A1')),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.assignment_outlined, color: inkBlue),
+              title: const Text('Reevaluate my level'),
+              subtitle: const Text('Retake the quick placement check'),
+              trailing: const Icon(Icons.chevron_right, color: t3),
+              onTap: () async {
+                logEvent('reevaluate level: started');
+                await Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => OnboardingFlow(startPhase: 'placement', onDone: () => Navigator.pop(context)),
+                ));
+                logEvent('reevaluate level: now ${Store.user.level}');
+                if (mounted) setState(() {});
+              },
             ),
             const Divider(height: 1),
             SwitchListTile(
