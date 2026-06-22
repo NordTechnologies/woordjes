@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'engine.dart';
+import 'notifications.dart';
 
 // ---- audio (tap to hear the Dutch word) ----
 final FlutterTts _tts = FlutterTts();
@@ -82,6 +83,10 @@ Future<void> main() async {
       .map((t) => {'id': t['id'] as String, 'name': t['name'] as String, 'emoji': t['emoji'] as String})
       .toList();
   await Store.init();
+  if (Store.user.reminderOn) {
+    final p = Store.user.reminderTime.split(':');
+    scheduleDailyReminder(int.parse(p[0]), int.parse(p[1])); // re-arm on launch
+  }
   runApp(const WoordjesApp());
 }
 
@@ -516,8 +521,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: const Text('One gentle nudge (delivered in the installed app)'),
               value: u.reminderOn,
               activeColor: inkBlue,
-              onChanged: (v) {
-                setState(() => u.reminderOn = v);
+              onChanged: (v) async {
+                if (v) {
+                  final granted = await requestNotifPermission(); // in-context permission
+                  if (granted) {
+                    final p = u.reminderTime.split(':');
+                    await scheduleDailyReminder(int.parse(p[0]), int.parse(p[1]));
+                  }
+                  setState(() => u.reminderOn = granted);
+                } else {
+                  await cancelReminders();
+                  setState(() => u.reminderOn = false);
+                }
                 Store.save();
               },
             ),
@@ -530,6 +545,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   final picked = await showTimePicker(context: context, initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])));
                   if (picked != null) {
                     setState(() => u.reminderTime = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}');
+                    await scheduleDailyReminder(picked.hour, picked.minute);
                     Store.save();
                   }
                 },
