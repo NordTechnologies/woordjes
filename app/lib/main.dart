@@ -656,8 +656,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: const Icon(Icons.description_outlined, color: inkBlue),
               title: const Text('Send logs to developer'),
-              subtitle: const Text('Shares an on-device log to help diagnose issues'),
-              onTap: () => shareLogs(),
+              subtitle: const Text('Emails recent logs to help diagnose issues'),
+              onTap: _sendLogsToDeveloper,
             ),
             const Divider(height: 1),
             ListTile(
@@ -680,6 +680,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await launchUrl(uri);
     } catch (_) {}
+  }
+
+  // Open the mail composer prefilled to the developer with recent logs in the body.
+  // mailto can't attach the full file, so we embed the recent log lines; if no mail
+  // client is configured, fall back to the share sheet (still lets the user export logs).
+  Future<void> _sendLogsToDeveloper() async {
+    logEvent('send logs to developer: tapped');
+    final subject = Uri.encodeComponent('Woordjes logs (build $buildVersion)');
+    final body = Uri.encodeComponent('My Woordjes log (for the developer):\n\n${recentLogs()}');
+    final uri = Uri.parse('mailto:nord_technologies@proton.me?subject=$subject&body=$body');
+    try {
+      if (await launchUrl(uri)) return;
+    } catch (_) {}
+    await shareLogs(); // no mail client available — fall back to the share sheet
   }
 
   Future<void> _confirmReset() async {
