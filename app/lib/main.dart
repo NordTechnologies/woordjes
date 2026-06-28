@@ -773,6 +773,30 @@ class InfoScreen extends StatelessWidget {
           icon: const Icon(Icons.article_outlined, color: inkBlue),
           label: const Text('Read the paper (ACL Anthology)', style: TextStyle(color: inkBlue)),
         ),
+        const SizedBox(height: 28),
+        const Text('How many words you learn at once', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: t1)),
+        const SizedBox(height: 10),
+        Text(
+          'Woordjes introduces new words only when you have room. At most '
+          '${C.maxInProgress} words can be “in progress” (started but not yet learned) '
+          'at the same time. While you are at that limit, no new words are added — they '
+          'wait until you finish some of the ones you are already learning, so you are '
+          'never flooded and reviews stay manageable.',
+          style: const TextStyle(color: t2, height: 1.5),
+        ),
+        const SizedBox(height: 28),
+        const Text('When a word counts as learned', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: t1)),
+        const SizedBox(height: 10),
+        Text(
+          'Under the hood, each word climbs a ${C.maxBox + 1}-step spaced-repetition '
+          'ladder: answer it correctly and it moves up (longer gap before you see it '
+          'again); miss it and it drops back. A word becomes “learned” once you have '
+          'answered it correctly on at least ${C.learnedMinDays} different days and '
+          'pushed it to box ${C.learnedMinBox} of ${C.maxBox + 1}, with your most recent '
+          'answer correct. Learned words leave your daily sessions and move to your 🏆 '
+          'Learned list — though if you slip on one later, it can return to review.',
+          style: const TextStyle(color: t2, height: 1.5),
+        ),
         const SizedBox(height: 24),
         const Text(
           'Word translations and grammar (de/het, plurals, verb forms) are generated and '
