@@ -111,6 +111,15 @@ h2.section { font-size:1.0625rem; font-weight:600; margin:24px 0 10px; color:var
 .bar > span { display:block; height:100%; background:var(--c-primary); width:0; transition:width .25s ease; border-radius:var(--r-pill); }
 .bar.success > span { background:var(--c-success); }
 
+/* ---- level stepper (placement check) ---- */
+.lvl-steps { display:flex; gap:6px; margin-bottom:14px; }
+.lvl-step { flex:1; display:flex; align-items:center; justify-content:center; gap:4px;
+  height:26px; border-radius:var(--r-pill); font-size:.75rem; font-weight:700;
+  background:var(--c-surface-alt); color:var(--t-3); border:1.5px solid transparent; }
+.lvl-step.done { background:var(--c-success-soft); color:var(--c-success); }
+.lvl-step.current { background:var(--c-primary); color:#fff; }
+.lvl-step.probing { background:var(--c-surface); color:var(--c-primary); border-color:var(--c-primary); }
+
 /* ---- badges ---- */
 .badge { display:inline-block; font-size:.8125rem; font-weight:700; text-transform:uppercase;
   letter-spacing:.5px; padding:4px 12px; border-radius:var(--r-pill); }

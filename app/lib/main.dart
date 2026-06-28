@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -142,9 +143,14 @@ class OnboardingFlow extends StatefulWidget {
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   late String phase;
-  List<Word> qWords = [];
-  int qi = 0;
-  final Map<String, int> correctByLevel = {'A1': 0, 'A2': 0, 'B1': 0, 'B2': 0};
+  // adaptive staircase + confirmation probe (see engine.dart placementNext)
+  int levelIdx = 0;
+  String mode = 'eval'; // 'eval' | 'probe'
+  List<Word> batchWords = [];
+  int batchCorrect = 0;
+  int idxInBatch = 0;
+  String? fallbackLevel;
+  final Set<int> usedIds = {};
   McQuestion? q;
   int? chosen;
   String resultLevel = 'A1';
@@ -156,17 +162,30 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (phase == 'placement') _prepPlacement(); // re-evaluate: jump straight into the check
   }
 
-  void _prepPlacement() {
-    final qs = <Word>[];
-    for (final lv in levels) {
-      final pool = words.where((w) => w.level == lv).toList()..shuffle();
-      qs.addAll(pool.take(3));
+  List<Word> _pickWords(String lv, int count) {
+    final pool = words.where((w) => w.level == lv && !usedIds.contains(w.id)).toList()..shuffle();
+    final picked = pool.take(min(count, pool.length)).toList();
+    for (final w in picked) {
+      usedIds.add(w.id);
     }
-    qs.shuffle();
-    qWords = qs;
-    qi = 0;
-    q = generateMC(qWords[0], words, 'NL_EN');
+    return picked;
+  }
+
+  // Builds the next batch's words + first question. Caller wraps in setState when live.
+  void _startBatch(int li, String m) {
+    levelIdx = li;
+    mode = m;
+    batchCorrect = 0;
+    idxInBatch = 0;
+    batchWords = _pickWords(levels[li], m == 'probe' ? C.placementProbe : C.placementN);
+    q = generateMC(batchWords[0], words, 'NL_EN');
     chosen = null;
+  }
+
+  void _prepPlacement() {
+    usedIds.clear();
+    fallbackLevel = null;
+    _startBatch(0, 'eval');
   }
 
   void _startPlacement() {
@@ -174,28 +193,30 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     setState(() => phase = 'placement');
   }
 
+  void _finish(String lvl) {
+    resultLevel = lvl;
+    _setLevel(lvl);
+    setState(() => phase = 'result');
+  }
+
   void _answer(int i) {
-    final lv = qWords[qi].level;
-    if (i >= 0 && q!.options[i].correct) correctByLevel[lv] = correctByLevel[lv]! + 1;
+    if (i >= 0 && q!.options[i].correct) batchCorrect++;
     setState(() => chosen = i >= 0 ? i : q!.options.indexWhere((o) => o.correct));
     Future.delayed(const Duration(milliseconds: 400), () {
-      qi++;
-      if (qi >= qWords.length) {
-        String lvl = levels.last;
-        for (final l in levels) {
-          if (correctByLevel[l]! < 2) {
-            lvl = l;
-            break;
-          }
-        }
-        resultLevel = lvl;
-        _setLevel(lvl);
-        setState(() => phase = 'result');
-      } else {
+      idxInBatch++;
+      if (idxInBatch < batchWords.length) {
         setState(() {
-          q = generateMC(qWords[qi], words, 'NL_EN');
+          q = generateMC(batchWords[idxInBatch], words, 'NL_EN');
           chosen = null;
         });
+        return;
+      }
+      final next = placementNext(levelIdx, mode, batchCorrect, fallbackLevel);
+      if (next.action == 'finish') {
+        _finish(next.level!);
+      } else {
+        if (next.fallbackLevel != null) fallbackLevel = next.fallbackLevel;
+        setState(() => _startBatch(next.levelIdx, next.mode));
       }
     });
   }
@@ -257,15 +278,51 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             )),
       ]);
 
+  Widget _levelStep(String l, int i) {
+    Color bg = surfaceAlt, fg = t3;
+    BoxBorder? border;
+    String label = l;
+    if (i < levelIdx) {
+      bg = greenSoft;
+      fg = green;
+      label = '$l ✓';
+    } else if (i == levelIdx) {
+      if (mode == 'probe') {
+        bg = surface;
+        fg = inkBlue;
+        border = Border.all(color: inkBlue, width: 1.5);
+      } else {
+        bg = inkBlue;
+        fg = Colors.white;
+      }
+    }
+    return Expanded(
+      child: Container(
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: bg, border: border, borderRadius: BorderRadius.circular(999)),
+        child: Text(label, style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+
   Widget _placement() {
     final correctIdx = q!.options.indexWhere((o) => o.correct);
+    final label = mode == 'probe' ? 'Quick check · ${levels[levelIdx]}' : 'Level ${levels[levelIdx]}';
     return Column(children: [
       Row(children: [
-        const Text('Level check', style: TextStyle(color: t3, fontSize: 13, fontWeight: FontWeight.w600)),
+        for (int i = 0; i < levels.length; i++) ...[
+          _levelStep(levels[i], i),
+          if (i < levels.length - 1) const SizedBox(width: 6),
+        ],
+      ]),
+      const SizedBox(height: 14),
+      Row(children: [
+        Text(label, style: const TextStyle(color: t3, fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(width: 12),
-        Expanded(child: LinearProgressIndicator(value: qi / qWords.length, backgroundColor: surfaceAlt, color: inkBlue, minHeight: 8, borderRadius: BorderRadius.circular(999))),
+        Expanded(child: LinearProgressIndicator(value: idxInBatch / batchWords.length, backgroundColor: surfaceAlt, color: inkBlue, minHeight: 8, borderRadius: BorderRadius.circular(999))),
         const SizedBox(width: 12),
-        Text('${qi + 1}/${qWords.length}', style: const TextStyle(color: t3, fontSize: 13, fontWeight: FontWeight.w600)),
+        Text('${idxInBatch + 1}/${batchWords.length}', style: const TextStyle(color: t3, fontSize: 13, fontWeight: FontWeight.w600)),
       ]),
       const SizedBox(height: 28),
       const Text('What does this mean?', style: TextStyle(color: t3)),

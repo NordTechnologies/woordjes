@@ -21,12 +21,53 @@ class C {
   static const int retryGapInSession = 3;
   static const int freezeEarnDays = 7;
   static const int typoEditDistance = 1;
+  // ---- adaptive placement (level check) ----
+  static const int placementN = 6; // words per full level evaluation
+  static const int placementT = 5; // correct needed to pass an evaluation
+  static const int placementProbe = 3; // words from the level above on a failure
+  static const int placementProbePass = 3; // probe words needed to promote (climb)
 }
 
 const List<String> levels = ['A1', 'A2', 'B1', 'B2'];
 int levelRank(String? l) {
   final i = levels.indexOf(l ?? '');
   return i < 0 ? 0 : i;
+}
+
+// ---- adaptive placement decision (pure; mirrors engine.js placementNext) ----
+// You are assigned level L only when you fail eval(L) AND fail probe(L+1).
+class PlacementStep {
+  final String action; // 'finish' | 'batch'
+  final String? level; // for finish
+  final int levelIdx; // for batch
+  final String mode; // for batch: 'eval' | 'probe'
+  final String? fallbackLevel; // carried into a probe
+  const PlacementStep.finish(this.level)
+      : action = 'finish',
+        levelIdx = 0,
+        mode = 'eval',
+        fallbackLevel = null;
+  const PlacementStep.batch(this.levelIdx, this.mode, {this.fallbackLevel})
+      : action = 'batch',
+        level = null;
+}
+
+PlacementStep placementNext(int levelIdx, String mode, int batchCorrect, String? fallbackLevel) {
+  final last = levels.length - 1;
+  final L = levels[levelIdx];
+  if (mode == 'eval') {
+    if (batchCorrect >= C.placementT) {
+      if (levelIdx == last) return PlacementStep.finish(L); // passed top -> cap
+      return PlacementStep.batch(levelIdx + 1, 'eval');
+    }
+    if (levelIdx == last) return PlacementStep.finish(L); // failed top -> assign top
+    return PlacementStep.batch(levelIdx + 1, 'probe', fallbackLevel: L);
+  }
+  // probe: levelIdx is the level above the failed one
+  if (batchCorrect >= C.placementProbePass) {
+    return PlacementStep.batch(levelIdx, 'eval'); // full re-eval of this higher level
+  }
+  return PlacementStep.finish(fallbackLevel); // confirmed: stuck one level below
 }
 
 // ---- dates as YYYY-MM-DD (local calendar) ----

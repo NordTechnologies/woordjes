@@ -153,6 +153,53 @@ const ps = W.buildSession(words, {}, uP, '2026-06-17');
 ok('searched word jumps the new-word queue', ps.some(i => i.isNew && i.wordId === lastId));
 ok('session distinct words <= SESSION_SIZE cap', W.buildSession(words, {}, W.Store.loadUser(), '2026-06-17', { force: true }).length <= W.C.SESSION_SIZE);
 
+// ---- adaptive placement staircase (placementNext) ----
+// Drive the whole test by answering each batch with a scorer(levelIdx, mode) -> correct count.
+function runPlacement(scorer) {
+  let levelIdx = 0, mode = 'eval', fallback = null, guard = 0;
+  while (guard++ < 50) {
+    const correct = scorer(levelIdx, mode);
+    const next = W.placementNext(levelIdx, mode, correct, fallback);
+    if (next.action === 'finish') return next.level;
+    if (next.fallbackLevel) fallback = next.fallbackLevel;
+    levelIdx = next.levelIdx; mode = next.mode;
+  }
+  throw new Error('placement did not terminate');
+}
+const PASS = W.C.PLACEMENT_T, ACE = W.C.PLACEMENT_PROBE_PASS;
+// fail A1 outright; A2 probe also fails -> floor A1
+eq('placement floor A1', runPlacement(() => 0), 'A1');
+// pass A1, fail A2 eval, fail B1 probe -> assign A2
+eq('placement stops at A2', runPlacement((li, m) => {
+  if (li === 0 && m === 'eval') return PASS;     // pass A1
+  if (li === 1 && m === 'eval') return 3;         // fail A2
+  return 0;                                       // fail B1 probe
+}), 'A2');
+// pass A1, fail A2 eval, ACE B1 probe, then pass B1 eval, fail B2 eval -> assign B2 (top)
+eq('placement probe promotes then tops out', runPlacement((li, m) => {
+  if (li === 0 && m === 'eval') return PASS;     // pass A1
+  if (li === 1 && m === 'eval') return 3;         // fail A2
+  if (li === 2 && m === 'probe') return ACE;      // ace B1 probe -> promote
+  if (li === 2 && m === 'eval') return PASS;      // pass B1
+  return 0;                                       // fail B2 (top)
+}), 'B2');
+// recursion: pass A1, fail A2, ace B1 probe, fail B1 eval, fail B2 probe -> assign B1
+eq('placement recursive probe -> B1', runPlacement((li, m) => {
+  if (li === 0 && m === 'eval') return PASS;     // pass A1
+  if (li === 1 && m === 'eval') return 3;         // fail A2
+  if (li === 2 && m === 'probe') return ACE;      // ace B1 probe -> promote
+  if (li === 2 && m === 'eval') return 4;         // fail B1 eval
+  return 0;                                       // fail B2 probe -> confirm B1
+}), 'B1');
+// pass everything -> cap B2
+eq('placement caps at B2', runPlacement(() => PASS), 'B2');
+// a near-miss probe (one short of acing) does NOT promote
+eq('placement probe one-short does not promote', runPlacement((li, m) => {
+  if (li === 0 && m === 'eval') return 3;         // fail A1
+  if (li === 1 && m === 'probe') return ACE - 1;  // not enough to promote
+  return 0;
+}), 'A1');
+
 // ---- summary ----
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -382,26 +382,61 @@
     if (fromSettings) go('today'); else renderLevelResult(level, false);
   }
 
+  // Adaptive staircase level check with a confirmation probe (see engine.js placementNext).
+  // Climb level-by-level; a failed level isn't final until a 3-word probe of the level
+  // above also fails. Fresh words every run, never repeated within a run.
   function startPlacement() {
     $nav.hidden = true; $app.classList.add('training');
-    const qs = [];
-    W.LEVELS.forEach(l => { const pool = shuffleArr(S.words.filter(w => w.level === l)); pool.slice(0, 3).forEach(w => qs.push({ word: w, level: l })); });
-    S.placement = { qs: shuffleArr(qs), idx: 0, correct: { A1: 0, A2: 0, B1: 0, B2: 0 } };
+    S.placement = { levelIdx: 0, mode: 'eval', batchWords: [], batchCorrect: 0,
+                    idxInBatch: 0, fallbackLevel: null, usedIds: new Set() };
+    startBatch(0, 'eval');
+  }
+  function pickPlacementWords(level, count) {
+    const p = S.placement;
+    const pool = shuffleArr(S.words.filter(w => w.level === level && !p.usedIds.has(w.id)));
+    const picked = pool.slice(0, Math.min(count, pool.length));
+    picked.forEach(w => p.usedIds.add(w.id));
+    return picked;
+  }
+  function startBatch(levelIdx, mode) {
+    const p = S.placement;
+    p.levelIdx = levelIdx; p.mode = mode; p.batchCorrect = 0; p.idxInBatch = 0;
+    const count = mode === 'probe' ? W.C.PLACEMENT_PROBE : W.C.PLACEMENT_N;
+    p.batchWords = pickPlacementWords(W.LEVELS[levelIdx], count);
     renderPlacementStep();
+  }
+  function placementSteps() {
+    const p = S.placement;
+    return W.LEVELS.map((l, i) => {
+      let cls = '';
+      if (i < p.levelIdx) cls = 'done';                       // climbed past
+      else if (i === p.levelIdx) cls = p.mode === 'probe' ? 'probing' : 'current';
+      const tick = cls === 'done' ? ' ✓' : '';
+      return `<span class="lvl-step ${cls}">${l}${tick}</span>`;
+    }).join('');
   }
   function renderPlacementStep() {
     const p = S.placement;
-    if (p.idx >= p.qs.length) { finishPlacement(); return; }
-    const { word, level } = p.qs[p.idx];
+    const word = p.batchWords[p.idxInBatch];
     const mc = W.generateMC(word, S.words, 'NL_EN');
-    const progress = Math.round(100 * p.idx / p.qs.length);
+    const progress = Math.round(100 * p.idxInBatch / p.batchWords.length);
+    const label = p.mode === 'probe' ? `Quick check · ${W.LEVELS[p.levelIdx]}` : `Level ${W.LEVELS[p.levelIdx]}`;
     const opts = mc.options.map((o, i) => `<button class="opt" data-i="${i}" lang="en">${esc(o.text)}</button>`).join('');
     $app.innerHTML = `
-      <div class="train-top"><span class="count">Level check</span><span class="bar"><span style="width:${progress}%"></span></span><span class="count">${p.idx + 1}/${p.qs.length}</span></div>
+      <div class="lvl-steps">${placementSteps()}</div>
+      <div class="train-top"><span class="count">${label}</span><span class="bar"><span style="width:${progress}%"></span></span><span class="count">${p.idxInBatch + 1}/${p.batchWords.length}</span></div>
       <div class="prompt"><div class="ask">What does this mean?</div><div class="word" lang="nl">${esc(word.nl)}${speakBtn(word.nl)}</div></div>
       <div class="options">${opts}</div>
       <button class="btn btn-ghost" id="dunno" style="margin-top:16px">I don't know this one</button>`;
-    const advance = (right) => { if (right) p.correct[level]++; p.idx++; setTimeout(renderPlacementStep, 350); };
+    const advance = (right) => {
+      if (right) p.batchCorrect++;
+      p.idxInBatch++;
+      if (p.idxInBatch < p.batchWords.length) { setTimeout(renderPlacementStep, 350); return; }
+      const next = W.placementNext(p.levelIdx, p.mode, p.batchCorrect, p.fallbackLevel);
+      if (next.action === 'finish') { setTimeout(() => finishPlacement(next.level), 350); return; }
+      if (next.fallbackLevel) p.fallbackLevel = next.fallbackLevel;
+      setTimeout(() => startBatch(next.levelIdx, next.mode), 350);
+    };
     $app.querySelectorAll('.opt').forEach(btn => btn.addEventListener('click', () => {
       const o = mc.options[+btn.dataset.i]; $app.querySelectorAll('.opt').forEach(x => x.classList.add('locked'));
       const ci = mc.options.findIndex(x => x.correct);
@@ -410,13 +445,7 @@
     }));
     document.getElementById('dunno').addEventListener('click', () => advance(false));
   }
-  function finishPlacement() {
-    const c = S.placement.correct;
-    // Start at the LOWEST level the learner did not clearly pass (>=2 of 3 correct).
-    // This is conservative — a lucky guess at a high level can't jump you past a level
-    // you actually struggled with, so it won't over-rate (the old "+1 above" did).
-    let level = W.LEVELS[W.LEVELS.length - 1]; // all passed -> top level
-    for (const l of W.LEVELS) { if (c[l] < 2) { level = l; break; } }
+  function finishPlacement(level) {
     S.user.level = level; S.user.onboarded = true; save();
     renderLevelResult(level, true);
   }
