@@ -23,12 +23,40 @@
     LEARNED_MIN_DAYS: 3,
     RETRY_GAP_IN_SESSION: 3,
     FREEZE_EARN_DAYS: 7,
-    TYPO_EDIT_DISTANCE: 1
+    TYPO_EDIT_DISTANCE: 1,
+    // ---- adaptive placement (level check) ----
+    PLACEMENT_N: 6,           // words per full level evaluation
+    PLACEMENT_T: 5,           // correct needed to pass an evaluation (>=5 of 6)
+    PLACEMENT_PROBE: 3,       // words shown from the level above on a failure
+    PLACEMENT_PROBE_PASS: 3   // probe words needed to promote (climb)
   };
 
   // ---- CEFR levels ----
   const LEVELS = ['A1', 'A2', 'B1', 'B2'];
   function levelRank(l) { const i = LEVELS.indexOf(l); return i < 0 ? 0 : i; }
+
+  // ---- adaptive placement decision (pure; drives the staircase + confirmation probe) ----
+  // Given the finished batch (mode + correct count), return the next action:
+  //   { action: 'finish', level }                         -> assign this level, end
+  //   { action: 'batch', levelIdx, mode, fallbackLevel? } -> run the next batch
+  // You are assigned level L only when you fail eval(L) AND fail probe(L+1).
+  function placementNext(levelIdx, mode, batchCorrect, fallbackLevel) {
+    const last = LEVELS.length - 1;
+    const L = LEVELS[levelIdx];
+    if (mode === 'eval') {
+      if (batchCorrect >= C.PLACEMENT_T) {                          // passed eval
+        if (levelIdx === last) return { action: 'finish', level: L }; // passed top -> cap
+        return { action: 'batch', levelIdx: levelIdx + 1, mode: 'eval' };
+      }
+      if (levelIdx === last) return { action: 'finish', level: L };   // failed top -> assign top
+      return { action: 'batch', levelIdx: levelIdx + 1, mode: 'probe', fallbackLevel: L };
+    }
+    // mode === 'probe' (levelIdx is the level ABOVE the failed one)
+    if (batchCorrect >= C.PLACEMENT_PROBE_PASS) {                    // aced probe -> failure was noise
+      return { action: 'batch', levelIdx: levelIdx, mode: 'eval' };  // full re-eval of this higher level
+    }
+    return { action: 'finish', level: fallbackLevel };              // confirmed: stuck one level below
+  }
 
   // ---- date helpers (calendar dates, local tz, YYYY-MM-DD) ----
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -299,7 +327,7 @@
   }
 
   global.WJ = {
-    C, LEVELS, levelRank, todayStr, addDays, dayDiff,
+    C, LEVELS, levelRank, placementNext, todayStr, addDays, dayDiff,
     Store, newCard, isDue, onCorrect, onWrong, updateLearned,
     buildSession, allowedNewToday, exerciseFor,
     generateMC, judgeTyped, expectedTyped, normalize, levenshtein,
