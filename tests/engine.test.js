@@ -200,6 +200,15 @@ eq('placement probe one-short does not promote', runPlacement((li, m) => {
   return 0;
 }), 'A1');
 
+// ---- cognate filter for the placement test ----
+ok('cognate water excluded', W.isGuessableCognate('water', 'water'));
+ok('cognate boek/book excluded', W.isGuessableCognate('boek', 'book'));
+ok('verb cognate drinken/to drink excluded', W.isGuessableCognate('drinken', 'to drink'));
+ok('cognate koffie/coffee excluded', W.isGuessableCognate('koffie', 'coffee'));
+ok('non-cognate fiets/bicycle kept', !W.isGuessableCognate('fiets', 'bicycle'));
+ok('non-cognate hond/dog kept', !W.isGuessableCognate('hond', 'dog'));
+ok('non-cognate vragen/to ask kept', !W.isGuessableCognate('vragen', 'to ask'));
+
 // ---- summary ----
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

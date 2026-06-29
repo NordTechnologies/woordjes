@@ -163,7 +163,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   List<Word> _pickWords(String lv, int count) {
-    final pool = words.where((w) => w.level == lv && !usedIds.contains(w.id)).toList()..shuffle();
+    final pool = words.where((w) => w.level == lv && !usedIds.contains(w.id) && !isGuessableCognate(w.nl, w.en)).toList()..shuffle();
     final picked = pool.take(min(count, pool.length)).toList();
     for (final w in picked) {
       usedIds.add(w.id);

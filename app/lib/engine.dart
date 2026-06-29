@@ -26,6 +26,7 @@ class C {
   static const int placementT = 5; // correct needed to pass an evaluation
   static const int placementProbe = 3; // words from the level above on a failure
   static const int placementProbePass = 3; // probe words needed to promote (climb)
+  static const double placementCognateSim = 0.6; // exclude test words this similar to their English
 }
 
 const List<String> levels = ['A1', 'A2', 'B1', 'B2'];
@@ -68,6 +69,17 @@ PlacementStep placementNext(int levelIdx, String mode, int batchCorrect, String?
     return PlacementStep.batch(levelIdx, 'eval'); // full re-eval of this higher level
   }
   return PlacementStep.finish(fallbackLevel); // confirmed: stuck one level below
+}
+
+// True when the Dutch word is so close to its English translation that a learner
+// could guess it without knowing Dutch (a cognate, e.g. water->water, drinken->to
+// drink). Excluded from the placement test so spelling similarity can't inflate it.
+bool isGuessableCognate(String nl, String en) {
+  final a = normalize(nl);
+  final b = normalize(en).replaceFirst(RegExp(r'^to\s+'), '');
+  if (a.isEmpty || b.isEmpty) return false;
+  final sim = 1 - levenshtein(a, b) / max(a.length, b.length);
+  return sim >= C.placementCognateSim;
 }
 
 // ---- dates as YYYY-MM-DD (local calendar) ----
