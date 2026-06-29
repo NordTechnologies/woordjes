@@ -393,7 +393,7 @@
   }
   function pickPlacementWords(level, count) {
     const p = S.placement;
-    const pool = shuffleArr(S.words.filter(w => w.level === level && !p.usedIds.has(w.id)));
+    const pool = shuffleArr(S.words.filter(w => w.level === level && !p.usedIds.has(w.id) && !W.isGuessableCognate(w.nl, w.en)));
     const picked = pool.slice(0, Math.min(count, pool.length));
     picked.forEach(w => p.usedIds.add(w.id));
     return picked;

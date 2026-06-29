@@ -28,7 +28,8 @@
     PLACEMENT_N: 6,           // words per full level evaluation
     PLACEMENT_T: 5,           // correct needed to pass an evaluation (>=5 of 6)
     PLACEMENT_PROBE: 3,       // words shown from the level above on a failure
-    PLACEMENT_PROBE_PASS: 3   // probe words needed to promote (climb)
+    PLACEMENT_PROBE_PASS: 3,  // probe words needed to promote (climb)
+    PLACEMENT_COGNATE_SIM: 0.6 // exclude test words this similar to their English (guessable cognates)
   };
 
   // ---- CEFR levels ----
@@ -56,6 +57,18 @@
       return { action: 'batch', levelIdx: levelIdx, mode: 'eval' };  // full re-eval of this higher level
     }
     return { action: 'finish', level: fallbackLevel };              // confirmed: stuck one level below
+  }
+
+  // True when the Dutch word is so close to its English translation that a learner
+  // could guess it without knowing Dutch (a cognate, e.g. water->water, drinken->to
+  // drink). Such words are excluded from the placement test so spelling similarity
+  // can't inflate the result. (normalize/levenshtein are hoisted; defined below.)
+  function isGuessableCognate(nl, en) {
+    const a = normalize(nl);
+    const b = normalize(en).replace(/^to\s+/, ''); // drop the "to " on verb glosses
+    if (!a || !b) return false;
+    const sim = 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+    return sim >= C.PLACEMENT_COGNATE_SIM;
   }
 
   // ---- date helpers (calendar dates, local tz, YYYY-MM-DD) ----
@@ -327,7 +340,7 @@
   }
 
   global.WJ = {
-    C, LEVELS, levelRank, placementNext, todayStr, addDays, dayDiff,
+    C, LEVELS, levelRank, placementNext, isGuessableCognate, todayStr, addDays, dayDiff,
     Store, newCard, isDue, onCorrect, onWrong, updateLearned,
     buildSession, allowedNewToday, exerciseFor,
     generateMC, judgeTyped, expectedTyped, normalize, levenshtein,
