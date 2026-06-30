@@ -53,7 +53,7 @@ class PlacementStep {
         level = null;
 }
 
-PlacementStep placementNext(int levelIdx, String mode, int batchCorrect, String? fallbackLevel) {
+PlacementStep placementNext(int levelIdx, String mode, double batchCorrect, String? fallbackLevel) {
   final last = levels.length - 1;
   final L = levels[levelIdx];
   if (mode == 'eval') {
@@ -358,7 +358,8 @@ class McOption {
   final String text;
   final int wordId;
   final bool correct;
-  McOption(this.text, this.wordId, this.correct);
+  final bool half; // placement only: right word, wrong article -> half credit
+  McOption(this.text, this.wordId, this.correct, {this.half = false});
 }
 
 class McQuestion {

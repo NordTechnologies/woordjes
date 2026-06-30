@@ -147,7 +147,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int levelIdx = 0;
   String mode = 'eval'; // 'eval' | 'probe'
   List<Word> batchWords = [];
-  int batchCorrect = 0;
+  double batchCorrect = 0;
   int idxInBatch = 0;
   String? fallbackLevel;
   final Set<int> usedIds = {};
@@ -174,9 +174,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   // Build the question for the current batch word, picking a random direction.
+  // For English->Dutch nouns, swap one distractor for the same word with the wrong
+  // article (half credit) so the article is tested in the same tap.
   void _newQuestion() {
     qDir = _rng.nextBool() ? 'NL_EN' : 'EN_NL';
-    q = generateMC(batchWords[idxInBatch], words, qDir);
+    final w = batchWords[idxInBatch];
+    final mc = generateMC(w, words, qDir);
+    if (qDir == 'EN_NL' && w.type == 'noun' && w.article != null) {
+      final wrong = w.article == 'de' ? 'het' : 'de';
+      final decoy = McOption('$wrong ${w.nl}', w.id, false, half: true);
+      final i = mc.options.indexWhere((o) => !o.correct);
+      if (i >= 0) {
+        mc.options[i] = decoy;
+        mc.options.shuffle(_rng);
+      }
+    }
+    q = mc;
     chosen = null;
   }
 
@@ -208,7 +221,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _answer(int i) {
-    if (i >= 0 && q!.options[i].correct) batchCorrect++;
+    if (i >= 0) {
+      final o = q!.options[i];
+      batchCorrect += o.correct ? 1.0 : (o.half ? 0.5 : 0.0); // right article = half point
+    }
     setState(() => chosen = i >= 0 ? i : q!.options.indexWhere((o) => o.correct));
     Future.delayed(const Duration(milliseconds: 400), () {
       idxInBatch++;
@@ -341,6 +357,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           if (i == correctIdx) {
             bgc = greenSoft;
             bc = green;
+          } else if (i == chosen && o.half) {
+            bgc = const Color(0xFFFBEFD6); // partial: right word, wrong article
+            bc = const Color(0xFFC77700);
           } else if (i == chosen) {
             bgc = coralSoft;
             bc = coral;

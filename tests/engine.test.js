@@ -193,6 +193,8 @@ eq('placement recursive probe -> B1', runPlacement((li, m) => {
 }), 'B1');
 // pass everything -> cap B2
 eq('placement caps at B2', runPlacement(() => PASS), 'B2');
+// fractional scores (half-point articles): 4.5 on A1 is below T -> stays A1
+eq('placement 4.5 on A1 fails to A1', runPlacement((li, m) => (li === 0 && m === 'eval') ? 4.5 : 0), 'A1');
 // a near-miss probe (one short of acing) does NOT promote
 eq('placement probe one-short does not promote', runPlacement((li, m) => {
   if (li === 0 && m === 'eval') return 3;         // fail A1
