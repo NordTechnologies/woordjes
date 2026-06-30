@@ -422,6 +422,13 @@
     const dir = p.batchDirs[p.idxInBatch];
     const nlToEn = dir === 'NL_EN';
     const mc = W.generateMC(word, S.words, dir);
+    // English->Dutch noun: swap one distractor for the same word with the wrong
+    // article (half credit) so the article is tested in the same tap.
+    if (!nlToEn && word.type === 'noun' && word.article) {
+      const wrong = word.article === 'de' ? 'het' : 'de';
+      const j = mc.options.findIndex(o => !o.correct);
+      if (j >= 0) { mc.options[j] = { text: wrong + ' ' + word.nl, wordId: word.id, correct: false, half: true }; mc.options = shuffleArr(mc.options); }
+    }
     const progress = Math.round(100 * p.idxInBatch / p.batchWords.length);
     const label = p.mode === 'probe' ? `Quick check · ${W.LEVELS[p.levelIdx]}` : `Level ${W.LEVELS[p.levelIdx]}`;
     const ask = nlToEn ? 'What does this mean?' : 'Which Dutch word means this?';
@@ -433,8 +440,8 @@
       <div class="prompt"><div class="ask">${ask}</div><div class="word" lang="${nlToEn ? 'nl' : 'en'}">${esc(mc.prompt)}${promptAudio}</div></div>
       <div class="options">${opts}</div>
       <button class="btn btn-ghost" id="dunno" style="margin-top:16px">I don't know this one</button>`;
-    const advance = (right) => {
-      if (right) p.batchCorrect++;
+    const advance = (points) => {
+      p.batchCorrect += points;
       p.idxInBatch++;
       if (p.idxInBatch < p.batchWords.length) { setTimeout(renderPlacementStep, 350); return; }
       const next = W.placementNext(p.levelIdx, p.mode, p.batchCorrect, p.fallbackLevel);
@@ -445,10 +452,11 @@
     $app.querySelectorAll('.opt').forEach(btn => btn.addEventListener('click', () => {
       const o = mc.options[+btn.dataset.i]; $app.querySelectorAll('.opt').forEach(x => x.classList.add('locked'));
       const ci = mc.options.findIndex(x => x.correct);
-      if (o.correct) { btn.classList.add('correct'); } else { btn.classList.add('wrong'); $app.querySelectorAll('.opt')[ci].classList.add('correct'); }
-      advance(o.correct);
+      if (o.correct) { btn.classList.add('correct'); }
+      else { btn.classList.add(o.half ? 'partial' : 'wrong'); $app.querySelectorAll('.opt')[ci].classList.add('correct'); }
+      advance(o.correct ? 1 : (o.half ? 0.5 : 0)); // right word, wrong article = half point
     }));
-    document.getElementById('dunno').addEventListener('click', () => advance(false));
+    document.getElementById('dunno').addEventListener('click', () => advance(0));
   }
   function finishPlacement(level) {
     S.user.level = level; S.user.onboarded = true; save();
