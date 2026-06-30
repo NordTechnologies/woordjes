@@ -404,7 +404,24 @@
     const count = mode === 'probe' ? W.C.PLACEMENT_PROBE : W.C.PLACEMENT_N;
     p.batchWords = pickPlacementWords(W.LEVELS[levelIdx], count);
     p.batchDirs = p.batchWords.map(() => Math.random() < 0.5 ? 'NL_EN' : 'EN_NL'); // mix both directions
+    p.deHetPhase = false;
     renderPlacementStep();
+  }
+  function placementProceed() {
+    const p = S.placement;
+    p.deHetPhase = false;
+    p.idxInBatch++;
+    if (p.idxInBatch < p.batchWords.length) { renderPlacementStep(); return; }
+    const next = W.placementNext(p.levelIdx, p.mode, p.batchCorrect, p.fallbackLevel);
+    if (next.action === 'finish') { finishPlacement(next.level); return; }
+    if (next.fallbackLevel) p.fallbackLevel = next.fallbackLevel;
+    startBatch(next.levelIdx, next.mode);
+  }
+  function placementHeader(label) {
+    const p = S.placement;
+    const progress = Math.round(100 * p.idxInBatch / p.batchWords.length);
+    return `<div class="lvl-steps">${placementSteps()}</div>
+      <div class="train-top"><span class="count">${label}</span><span class="bar"><span style="width:${progress}%"></span></span><span class="count">${p.idxInBatch + 1}/${p.batchWords.length}</span></div>`;
   }
   function placementSteps() {
     const p = S.placement;
@@ -421,42 +438,49 @@
     const word = p.batchWords[p.idxInBatch];
     const dir = p.batchDirs[p.idxInBatch];
     const nlToEn = dir === 'NL_EN';
-    const mc = W.generateMC(word, S.words, dir);
-    // English->Dutch noun: swap one distractor for the same word with the wrong
-    // article (half credit) so the article is tested in the same tap.
-    if (!nlToEn && word.type === 'noun' && word.article) {
-      const wrong = word.article === 'de' ? 'het' : 'de';
-      const j = mc.options.findIndex(o => !o.correct);
-      if (j >= 0) { mc.options[j] = { text: wrong + ' ' + word.nl, wordId: word.id, correct: false, half: true }; mc.options = shuffleArr(mc.options); }
-    }
-    const progress = Math.round(100 * p.idxInBatch / p.batchWords.length);
+    const isNoun = !nlToEn && word.type === 'noun' && word.article; // article asked as a sub-question
     const label = p.mode === 'probe' ? `Quick check · ${W.LEVELS[p.levelIdx]}` : `Level ${W.LEVELS[p.levelIdx]}`;
+    if (p.deHetPhase) { renderArticleStep(word, label); return; }
+    const mc = W.generateMC(word, S.words, dir, isNoun); // bare options for nouns (no article shown)
     const ask = nlToEn ? 'What does this mean?' : 'Which Dutch word means this?';
     const promptAudio = nlToEn ? speakBtn(word.nl) : ''; // only speak the Dutch side
     const opts = mc.options.map((o, i) => `<button class="opt" data-i="${i}" lang="${nlToEn ? 'en' : 'nl'}">${esc(o.text)}</button>`).join('');
-    $app.innerHTML = `
-      <div class="lvl-steps">${placementSteps()}</div>
-      <div class="train-top"><span class="count">${label}</span><span class="bar"><span style="width:${progress}%"></span></span><span class="count">${p.idxInBatch + 1}/${p.batchWords.length}</span></div>
+    $app.innerHTML = placementHeader(label) + `
       <div class="prompt"><div class="ask">${ask}</div><div class="word" lang="${nlToEn ? 'nl' : 'en'}">${esc(mc.prompt)}${promptAudio}</div></div>
       <div class="options">${opts}</div>
       <button class="btn btn-ghost" id="dunno" style="margin-top:16px">I don't know this one</button>`;
-    const advance = (points) => {
-      p.batchCorrect += points;
-      p.idxInBatch++;
-      if (p.idxInBatch < p.batchWords.length) { setTimeout(renderPlacementStep, 350); return; }
-      const next = W.placementNext(p.levelIdx, p.mode, p.batchCorrect, p.fallbackLevel);
-      if (next.action === 'finish') { setTimeout(() => finishPlacement(next.level), 350); return; }
-      if (next.fallbackLevel) p.fallbackLevel = next.fallbackLevel;
-      setTimeout(() => startBatch(next.levelIdx, next.mode), 350);
-    };
-    $app.querySelectorAll('.opt').forEach(btn => btn.addEventListener('click', () => {
-      const o = mc.options[+btn.dataset.i]; $app.querySelectorAll('.opt').forEach(x => x.classList.add('locked'));
+    const pick = (o, btn) => {
+      $app.querySelectorAll('.opt').forEach(x => x.classList.add('locked'));
       const ci = mc.options.findIndex(x => x.correct);
-      if (o.correct) { btn.classList.add('correct'); }
-      else { btn.classList.add(o.half ? 'partial' : 'wrong'); $app.querySelectorAll('.opt')[ci].classList.add('correct'); }
-      advance(o.correct ? 1 : (o.half ? 0.5 : 0)); // right word, wrong article = half point
+      if (o && o.correct) {
+        btn.classList.add('correct');
+        if (isNoun) { p.batchCorrect += 0.5; p.deHetPhase = true; setTimeout(renderPlacementStep, 450); return; } // ask article next
+        p.batchCorrect += 1;
+        setTimeout(placementProceed, 350);
+      } else {
+        if (btn) btn.classList.add('wrong');
+        $app.querySelectorAll('.opt')[ci].classList.add('correct');
+        setTimeout(placementProceed, 350);
+      }
+    };
+    $app.querySelectorAll('.opt').forEach(btn => btn.addEventListener('click', () => pick(mc.options[+btn.dataset.i], btn)));
+    document.getElementById('dunno').addEventListener('click', () => pick(null, null));
+  }
+  function renderArticleStep(word, label) {
+    const p = S.placement;
+    $app.innerHTML = placementHeader(label) + `
+      <div class="prompt"><div class="ask">Is it <strong>de</strong> or <strong>het</strong>?</div><div class="word" lang="nl">${esc(word.nl)}</div></div>
+      <div class="options">
+        <button class="opt" data-a="de" lang="nl">de</button>
+        <button class="opt" data-a="het" lang="nl">het</button>
+      </div>`;
+    $app.querySelectorAll('.opt').forEach(btn => btn.addEventListener('click', () => {
+      const a = btn.dataset.a;
+      $app.querySelectorAll('.opt').forEach(x => { x.classList.add('locked'); if (x.dataset.a === word.article) x.classList.add('correct'); });
+      if (a === word.article) { p.batchCorrect += 0.5; } // right article = the other half point
+      else { btn.classList.add('wrong'); }
+      setTimeout(placementProceed, 350);
     }));
-    document.getElementById('dunno').addEventListener('click', () => advance(0));
   }
   function finishPlacement(level) {
     S.user.level = level; S.user.onboarded = true; save();
