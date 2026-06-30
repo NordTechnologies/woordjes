@@ -209,6 +209,17 @@ ok('non-cognate fiets/bicycle kept', !W.isGuessableCognate('fiets', 'bicycle'));
 ok('non-cognate hond/dog kept', !W.isGuessableCognate('hond', 'dog'));
 ok('non-cognate vragen/to ask kept', !W.isGuessableCognate('vragen', 'to ask'));
 
+// ---- placement runs in both directions ----
+const apple = words.find(w => w.nl === 'appel');
+if (apple) {
+  const nlEn = W.generateMC(apple, words, 'NL_EN');
+  eq('NL_EN prompt is Dutch', nlEn.prompt, apple.article ? apple.article + ' ' + apple.nl : apple.nl);
+  ok('NL_EN correct option is English', nlEn.options.find(o => o.correct).text === apple.en);
+  const enNl = W.generateMC(apple, words, 'EN_NL');
+  eq('EN_NL prompt is English', enNl.prompt, apple.en);
+  ok('EN_NL correct option is Dutch', enNl.options.find(o => o.correct).text.includes(apple.nl));
+} else { ok('appel present for direction test', false); }
+
 // ---- summary ----
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

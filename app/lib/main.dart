@@ -151,7 +151,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int idxInBatch = 0;
   String? fallbackLevel;
   final Set<int> usedIds = {};
+  final Random _rng = Random();
   McQuestion? q;
+  String qDir = 'NL_EN'; // direction of the current question: 'NL_EN' | 'EN_NL'
   int? chosen;
   String resultLevel = 'A1';
 
@@ -171,6 +173,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     return picked;
   }
 
+  // Build the question for the current batch word, picking a random direction.
+  void _newQuestion() {
+    qDir = _rng.nextBool() ? 'NL_EN' : 'EN_NL';
+    q = generateMC(batchWords[idxInBatch], words, qDir);
+    chosen = null;
+  }
+
   // Builds the next batch's words + first question. Caller wraps in setState when live.
   void _startBatch(int li, String m) {
     levelIdx = li;
@@ -178,8 +187,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     batchCorrect = 0;
     idxInBatch = 0;
     batchWords = _pickWords(levels[li], m == 'probe' ? C.placementProbe : C.placementN);
-    q = generateMC(batchWords[0], words, 'NL_EN');
-    chosen = null;
+    _newQuestion();
   }
 
   void _prepPlacement() {
@@ -205,10 +213,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     Future.delayed(const Duration(milliseconds: 400), () {
       idxInBatch++;
       if (idxInBatch < batchWords.length) {
-        setState(() {
-          q = generateMC(batchWords[idxInBatch], words, 'NL_EN');
-          chosen = null;
-        });
+        setState(_newQuestion);
         return;
       }
       final next = placementNext(levelIdx, mode, batchCorrect, fallbackLevel);
@@ -325,7 +330,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         Text('${idxInBatch + 1}/${batchWords.length}', style: const TextStyle(color: t3, fontSize: 13, fontWeight: FontWeight.w600)),
       ]),
       const SizedBox(height: 28),
-      const Text('What does this mean?', style: TextStyle(color: t3)),
+      Text(qDir == 'NL_EN' ? 'What does this mean?' : 'Which Dutch word means this?', style: const TextStyle(color: t3)),
       const SizedBox(height: 8),
       Text(q!.prompt, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: t1)),
       const SizedBox(height: 24),

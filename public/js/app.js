@@ -403,6 +403,7 @@
     p.levelIdx = levelIdx; p.mode = mode; p.batchCorrect = 0; p.idxInBatch = 0;
     const count = mode === 'probe' ? W.C.PLACEMENT_PROBE : W.C.PLACEMENT_N;
     p.batchWords = pickPlacementWords(W.LEVELS[levelIdx], count);
+    p.batchDirs = p.batchWords.map(() => Math.random() < 0.5 ? 'NL_EN' : 'EN_NL'); // mix both directions
     renderPlacementStep();
   }
   function placementSteps() {
@@ -418,14 +419,18 @@
   function renderPlacementStep() {
     const p = S.placement;
     const word = p.batchWords[p.idxInBatch];
-    const mc = W.generateMC(word, S.words, 'NL_EN');
+    const dir = p.batchDirs[p.idxInBatch];
+    const nlToEn = dir === 'NL_EN';
+    const mc = W.generateMC(word, S.words, dir);
     const progress = Math.round(100 * p.idxInBatch / p.batchWords.length);
     const label = p.mode === 'probe' ? `Quick check · ${W.LEVELS[p.levelIdx]}` : `Level ${W.LEVELS[p.levelIdx]}`;
-    const opts = mc.options.map((o, i) => `<button class="opt" data-i="${i}" lang="en">${esc(o.text)}</button>`).join('');
+    const ask = nlToEn ? 'What does this mean?' : 'Which Dutch word means this?';
+    const promptAudio = nlToEn ? speakBtn(word.nl) : ''; // only speak the Dutch side
+    const opts = mc.options.map((o, i) => `<button class="opt" data-i="${i}" lang="${nlToEn ? 'en' : 'nl'}">${esc(o.text)}</button>`).join('');
     $app.innerHTML = `
       <div class="lvl-steps">${placementSteps()}</div>
       <div class="train-top"><span class="count">${label}</span><span class="bar"><span style="width:${progress}%"></span></span><span class="count">${p.idxInBatch + 1}/${p.batchWords.length}</span></div>
-      <div class="prompt"><div class="ask">What does this mean?</div><div class="word" lang="nl">${esc(word.nl)}${speakBtn(word.nl)}</div></div>
+      <div class="prompt"><div class="ask">${ask}</div><div class="word" lang="${nlToEn ? 'nl' : 'en'}">${esc(mc.prompt)}${promptAudio}</div></div>
       <div class="options">${opts}</div>
       <button class="btn btn-ghost" id="dunno" style="margin-top:16px">I don't know this one</button>`;
     const advance = (right) => {
