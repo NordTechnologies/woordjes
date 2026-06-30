@@ -358,8 +358,7 @@ class McOption {
   final String text;
   final int wordId;
   final bool correct;
-  final bool half; // placement only: right word, wrong article -> half credit
-  McOption(this.text, this.wordId, this.correct, {this.half = false});
+  McOption(this.text, this.wordId, this.correct);
 }
 
 class McQuestion {

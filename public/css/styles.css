@@ -155,7 +155,6 @@ h2.section { font-size:1.0625rem; font-weight:600; margin:24px 0 10px; color:var
 .opt:active { transform:scale(.99); background:var(--c-surface-alt); }
 .opt.correct { background:var(--c-success-soft); border-color:var(--c-success); }
 .opt.wrong { background:var(--c-error-soft); border-color:var(--c-error); }
-.opt.partial { background:#FBEFD6; border-color:#C77700; } /* right word, wrong article */
 .opt.locked { opacity:.55; pointer-events:none; }
 .opt .mark { float:right; font-weight:700; }
 .opt.nudge { animation:nudge .18s ease; }

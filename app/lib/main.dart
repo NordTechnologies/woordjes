@@ -155,6 +155,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   McQuestion? q;
   String qDir = 'NL_EN'; // direction of the current question: 'NL_EN' | 'EN_NL'
   int? chosen;
+  bool deHetPhase = false; // article sub-question after a correct EN->Dutch noun
+  String? deHetChosen;
   String resultLevel = 'A1';
 
   @override
@@ -174,23 +176,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   // Build the question for the current batch word, picking a random direction.
-  // For English->Dutch nouns, swap one distractor for the same word with the wrong
-  // article (half credit) so the article is tested in the same tap.
+  // English->Dutch nouns use bare options (no article); the article is asked as a
+  // separate de/het sub-question after the word is chosen.
+  bool get _isNounEnNl {
+    final w = batchWords[idxInBatch];
+    return qDir == 'EN_NL' && w.type == 'noun' && w.article != null;
+  }
+
   void _newQuestion() {
     qDir = _rng.nextBool() ? 'NL_EN' : 'EN_NL';
-    final w = batchWords[idxInBatch];
-    final mc = generateMC(w, words, qDir);
-    if (qDir == 'EN_NL' && w.type == 'noun' && w.article != null) {
-      final wrong = w.article == 'de' ? 'het' : 'de';
-      final decoy = McOption('$wrong ${w.nl}', w.id, false, half: true);
-      final i = mc.options.indexWhere((o) => !o.correct);
-      if (i >= 0) {
-        mc.options[i] = decoy;
-        mc.options.shuffle(_rng);
-      }
-    }
-    q = mc;
+    deHetPhase = false;
+    deHetChosen = null;
     chosen = null;
+    q = generateMC(batchWords[idxInBatch], words, qDir, bare: _isNounEnNl);
   }
 
   // Builds the next batch's words + first question. Caller wraps in setState when live.
@@ -221,25 +219,39 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _answer(int i) {
-    if (i >= 0) {
-      final o = q!.options[i];
-      batchCorrect += o.correct ? 1.0 : (o.half ? 0.5 : 0.0); // right article = half point
-    }
+    final correctWord = i >= 0 && q!.options[i].correct;
     setState(() => chosen = i >= 0 ? i : q!.options.indexWhere((o) => o.correct));
-    Future.delayed(const Duration(milliseconds: 400), () {
-      idxInBatch++;
-      if (idxInBatch < batchWords.length) {
-        setState(_newQuestion);
-        return;
-      }
-      final next = placementNext(levelIdx, mode, batchCorrect, fallbackLevel);
-      if (next.action == 'finish') {
-        _finish(next.level!);
-      } else {
-        if (next.fallbackLevel != null) fallbackLevel = next.fallbackLevel;
-        setState(() => _startBatch(next.levelIdx, next.mode));
-      }
-    });
+    if (correctWord && _isNounEnNl) {
+      // word right; worth half, then ask the article as a sub-question
+      batchCorrect += 0.5;
+      Future.delayed(const Duration(milliseconds: 400), () => setState(() => deHetPhase = true));
+      return;
+    }
+    if (correctWord) batchCorrect += 1.0; // non-noun / NL->EN: full credit
+    Future.delayed(const Duration(milliseconds: 400), _proceedNext);
+  }
+
+  void _onDeHet(String a) {
+    final w = batchWords[idxInBatch];
+    deHetChosen = a;
+    if (a == w.article) batchCorrect += 0.5; // right article = the other half point
+    setState(() {});
+    Future.delayed(const Duration(milliseconds: 400), _proceedNext);
+  }
+
+  void _proceedNext() {
+    idxInBatch++;
+    if (idxInBatch < batchWords.length) {
+      setState(_newQuestion);
+      return;
+    }
+    final next = placementNext(levelIdx, mode, batchCorrect, fallbackLevel);
+    if (next.action == 'finish') {
+      _finish(next.level!);
+    } else {
+      if (next.fallbackLevel != null) fallbackLevel = next.fallbackLevel;
+      setState(() => _startBatch(next.levelIdx, next.mode));
+    }
   }
 
   void _setLevel(String l) {
@@ -357,9 +369,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           if (i == correctIdx) {
             bgc = greenSoft;
             bc = green;
-          } else if (i == chosen && o.half) {
-            bgc = const Color(0xFFFBEFD6); // partial: right word, wrong article
-            bc = const Color(0xFFC77700);
           } else if (i == chosen) {
             bgc = coralSoft;
             bc = coral;
@@ -377,7 +386,46 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
         );
       }),
-      TextButton(onPressed: chosen == null ? () => _answer(-1) : null, child: const Text("I don't know this one", style: TextStyle(color: accentText))),
+      if (deHetPhase) _deHetRow(batchWords[idxInBatch]),
+      if (!deHetPhase)
+        TextButton(onPressed: chosen == null ? () => _answer(-1) : null, child: const Text("I don't know this one", style: TextStyle(color: accentText))),
+    ]);
+  }
+
+  Widget _deHetRow(Word w) {
+    return Column(children: [
+      const SizedBox(height: 8),
+      Text('Is it de or het ${w.nl}?', style: const TextStyle(color: t3)),
+      const SizedBox(height: 10),
+      Row(children: [
+        for (final a in const ['de', 'het'])
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Builder(builder: (_) {
+                Color bgc = surface, bc = inkBlue, fg = inkBlue;
+                if (deHetChosen != null) {
+                  if (a == w.article) {
+                    bgc = greenSoft;
+                    bc = green;
+                    fg = t1;
+                  } else if (a == deHetChosen) {
+                    bgc = coralSoft;
+                    bc = coral;
+                    fg = t1;
+                  } else {
+                    bc = cBorder;
+                  }
+                }
+                return OutlinedButton(
+                  style: OutlinedButton.styleFrom(backgroundColor: bgc, minimumSize: const Size.fromHeight(60), side: BorderSide(color: bc, width: 1.5), foregroundColor: fg),
+                  onPressed: deHetChosen == null ? () => _onDeHet(a) : null,
+                  child: Text(a, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                );
+              }),
+            ),
+          ),
+      ]),
     ]);
   }
 
