@@ -91,21 +91,27 @@ eq('drop final consonant -> ALMOST', W.judgeTyped('werke', werken), 'ALMOST');
 // vowel deletion 'werken'->'wrken' should be WRONG
 eq('drop a vowel -> WRONG', W.judgeTyped('wrken', werken), 'WRONG');
 
-// ---- streak + freeze ----
+// ---- streak (strict consecutive days) ----
 let u = W.Store.loadUser();
 W.updateStreak(u, '2026-06-01'); eq('streak start', u.currentStreak, 1);
 W.updateStreak(u, '2026-06-02'); eq('streak consecutive', u.currentStreak, 2);
 W.updateStreak(u, '2026-06-02'); eq('same day no double', u.currentStreak, 2);
-W.updateStreak(u, '2026-06-04'); eq('2-day gap no freeze resets', u.currentStreak, 1);
-// build to earn a freeze (7 consecutive), then a 1-day miss is forgiven
+W.updateStreak(u, '2026-06-04'); eq('2-day gap resets', u.currentStreak, 1);
+// a long streak does NOT survive a missed day (freeze removed): 7 in a row, skip one -> reset
 let u2 = W.Store.loadUser();
-let day = '2026-07-01';
 for (let i = 0; i < 7; i++) { W.updateStreak(u2, W.addDays('2026-07-01', i)); }
-ok('freeze earned after 7 days', u2.freezeAvailable === true);
 eq('streak is 7', u2.currentStreak, 7);
-W.updateStreak(u2, W.addDays('2026-07-01', 8)); // skipped day index 7 -> gap 2, freeze used
-eq('freeze bridges 1 missed day', u2.currentStreak, 8);
-ok('freeze consumed', u2.freezeAvailable === false);
+W.updateStreak(u2, W.addDays('2026-07-01', 8)); // skipped day index 7 -> gap 2 -> reset
+eq('missed day resets long streak', u2.currentStreak, 1);
+eq('longest streak preserved', u2.longestStreak, 7);
+// displayStreak: a broken streak reads as 0 until the user practises again
+let uDisp = W.Store.loadUser();
+W.updateStreak(uDisp, '2026-08-10');
+eq('display: done today', W.displayStreak(uDisp, '2026-08-10'), 1);
+eq('display: done yesterday (grace)', W.displayStreak(uDisp, '2026-08-11'), 1);
+eq('display: one missed day -> 0', W.displayStreak(uDisp, '2026-08-12'), 0);
+eq('display: many missed days -> 0', W.displayStreak(uDisp, '2026-08-20'), 0);
+eq('display: never completed -> 0', W.displayStreak(W.Store.loadUser(), '2026-08-10'), 0);
 
 // ---- buildSession respects new-word cap ----
 const fresh = {};

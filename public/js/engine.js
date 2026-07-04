@@ -1,6 +1,6 @@
 /* Woordjes — learning engine (v0)
  * Implements "Learning Mechanics Spec (v0).md": 7-box Leitner, due logic,
- * difficulty ramp, MC generation, typing judgement, Learned rule, streak + freeze.
+ * difficulty ramp, MC generation, typing judgement, Learned rule, streak.
  * Pure logic + a thin localStorage adapter. No framework, no network. */
 (function (global) {
   'use strict';
@@ -22,7 +22,6 @@
     LEARNED_MIN_BOX: 5,
     LEARNED_MIN_DAYS: 3,
     RETRY_GAP_IN_SESSION: 3,
-    FREEZE_EARN_DAYS: 7,
     TYPO_EDIT_DISTANCE: 1,
     // ---- adaptive placement (level check) ----
     PLACEMENT_N: 6,           // words per full level evaluation
@@ -88,7 +87,6 @@
   function defaultUser() {
     return {
       currentStreak: 0, longestStreak: 0, lastCompletedDay: null,
-      freezeAvailable: false, daysSinceFreezeGranted: 0,
       hardModeEnabled: false,
       level: null,                 // CEFR level the learner starts new words from (null = A1/all)
       priorityQueue: [],           // word ids the user searched + chose to learn next (jump the queue)
@@ -310,25 +308,25 @@
   }
 
   // ---- streak (§8) ----
-  function refillFreeze(user) {
-    if (!user.freezeAvailable && user.daysSinceFreezeGranted >= C.FREEZE_EARN_DAYS) {
-      user.freezeAvailable = true; user.daysSinceFreezeGranted = 0;
-    }
-  }
   function updateStreak(user, today) {
     if (user.lastCompletedDay === today) return; // already counted today
     if (user.lastCompletedDay == null) {
-      user.currentStreak = 1;
+      user.currentStreak = 1;                     // first ever completed day
+    } else if (dayDiff(user.lastCompletedDay, today) === 1) {
+      user.currentStreak += 1;                    // consecutive day -> extend
     } else {
-      const gap = dayDiff(user.lastCompletedDay, today);
-      if (gap === 1) { user.currentStreak += 1; }
-      else if (gap === 2 && user.freezeAvailable) { user.currentStreak += 1; user.freezeAvailable = false; }
-      else { user.currentStreak = 1; }
+      user.currentStreak = 1;                     // any gap -> broken, restart at 1
     }
     user.lastCompletedDay = today;
     user.longestStreak = Math.max(user.longestStreak, user.currentStreak);
-    user.daysSinceFreezeGranted += 1;
-    refillFreeze(user);
+  }
+  // Streak to *display* as of `today`: a broken streak (a full day missed) reads
+  // as 0 immediately, before the user practises again. Display-only, never mutates
+  // state. gap 0 = done today; gap 1 = done yesterday, today still in progress.
+  function displayStreak(user, today) {
+    if (user.lastCompletedDay == null) return 0;
+    if (dayDiff(user.lastCompletedDay, today) >= 2) return 0;
+    return user.currentStreak;
   }
 
   // ---- progress helpers ----
@@ -344,6 +342,6 @@
     Store, newCard, isDue, onCorrect, onWrong, updateLearned,
     buildSession, allowedNewToday, exerciseFor,
     generateMC, judgeTyped, expectedTyped, normalize, levenshtein,
-    updateStreak, dueCount, learnedCount
+    updateStreak, displayStreak, dueCount, learnedCount
   };
 })(window);

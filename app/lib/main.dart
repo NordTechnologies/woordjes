@@ -541,7 +541,7 @@ class TodayTab extends StatelessWidget {
           Row(children: [
             GestureDetector(onTap: () => _changeLevel(context), child: _pill(Store.user.level ?? 'A1', inkBlue, Colors.white)),
             const SizedBox(width: 8),
-            _pill('🔥 ${Store.user.currentStreak}', accentSoft, accentText),
+            _pill('🔥 ${displayStreak(Store.user, todayStr())}', accentSoft, accentText),
             IconButton(
               onPressed: () async {
                 await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
@@ -1485,7 +1485,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
             Text('Correct $correct/$answered · $newIntroduced new', style: const TextStyle(color: t2)),
             if (learnedNames.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text('🏆 Learned: ${learnedNames.map((w) => w.nl).join(', ')}', style: const TextStyle(color: t3, fontSize: 13))),
             const SizedBox(height: 16),
-            _pill('🔥 ${Store.user.currentStreak}-day streak', accentSoft, accentText),
+            _pill('🔥 ${displayStreak(Store.user, todayStr())}-day streak', accentSoft, accentText),
             const SizedBox(height: 24),
             SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: inkBlue, minimumSize: const Size.fromHeight(52)), onPressed: () => Navigator.pop(context), child: const Text('Done', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)))),
           ]),
