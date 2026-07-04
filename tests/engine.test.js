@@ -126,6 +126,13 @@ const forced2 = W.buildSession(words, allSeen, W.Store.loadUser(), '2026-06-17',
 eq('forced fills from existing when all seen', forced2.length, W.C.SESSION_SIZE);
 ok('forced extra are review (not new)', forced2.every(i => !i.isNew));
 
+// ---- max in-progress cap: no new words while MAX_IN_PROGRESS are still being learned ----
+const capCards = {};
+for (let i = 0; i < W.C.MAX_IN_PROGRESS; i++) capCards[words[i].id] = W.newCard(words[i].id, '2026-06-17'); // 10 started, none learned
+ok('no new words while at max in-progress', W.buildSession(words, capCards, W.Store.loadUser(), '2026-06-17', { force: true }).every(i => !i.isNew));
+capCards[words[0].id].learned = true; // one graduates -> a slot frees up
+ok('new word resumes after one graduates', W.buildSession(words, capCards, W.Store.loadUser(), '2026-06-17', { force: true }).some(i => i.isNew));
+
 // ---- expanded data integrity ----
 const ids = new Set(words.map(w => w.id));
 eq('all word ids unique', ids.size, words.length);

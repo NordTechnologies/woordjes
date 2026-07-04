@@ -14,7 +14,7 @@ class C {
   static const int reviewBacklogPause = 30;
   static const int sessionSize = 10;
   static const int maxSessionScreens = 22;
-  static const int maxInProgress = 15; // cap on words being learned at once (Learning Expert)
+  static const int maxInProgress = 10; // max words in "learning" status at once; no new words introduced until some graduate to Learned
   static const int optionsPerMc = 4;
   static const int learnedMinBox = 5;
   static const int learnedMinDays = 3;

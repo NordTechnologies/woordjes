@@ -125,7 +125,7 @@ void main() {
 
   test('in-progress cap stops new words', () {
     final words = List.generate(60, (i) => noun(i + 1, 'w$i', 'm$i', 'de', 'w${i}s', topic: 't', level: 'A1', order: i + 1));
-    // 15 cards in progress (started, not learned) -> no new words
+    // maxInProgress cards in progress (started, not learned) -> no new words
     final cards = <int, Wcard>{};
     for (var i = 1; i <= C.maxInProgress; i++) {
       cards[i] = newCard(i, '2026-06-17')..box = 1..nextDue = '2026-12-01';
