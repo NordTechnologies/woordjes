@@ -18,6 +18,7 @@
     REVIEW_BACKLOG_PAUSE: 30,
     SESSION_SIZE: 10,            // max DISTINCT words selected per exercise
     MAX_SESSION_SCREENS: 22,     // hard cap on total screens shown per exercise (keeps it short; founder wants <=~20)
+    MAX_IN_PROGRESS: 10,         // max words in "learning" status (started, not yet learned); no new words until some graduate to Learned
     OPTIONS_PER_MC: 4,
     LEARNED_MIN_BOX: 5,
     LEARNED_MIN_DAYS: 3,
@@ -180,7 +181,12 @@
     // several times within the session by the UI before it graduates to next-day review.
     // force (the "Learn new words" button) ignores the backlog pause but still respects the
     // daily new-word cap so we never flood the learner. Total distinct words <= SESSION_SIZE.
-    const nAllowed = Math.min(C.NEW_PER_SESSION, allowedNewToday(cards, user, today, due.length, force));
+    // Hard cap on the "learning" pile: never introduce new words once MAX_IN_PROGRESS words are
+    // started-but-not-yet-learned. New words resume only as in-progress words graduate to Learned.
+    // force respects this too (it can still top up with existing cards for review, just no new ones).
+    const inProgress = Object.values(cards).filter(c => c && !c.learned).length;
+    const slots = Math.max(0, C.MAX_IN_PROGRESS - inProgress);
+    const nAllowed = Math.min(C.NEW_PER_SESSION, allowedNewToday(cards, user, today, due.length, force), slots);
     let newItems = [];
     if (nAllowed > 0) {
       const minLvl = levelRank(user.level || 'A1');
