@@ -54,7 +54,7 @@ public/            the app (static, no build step)
   css/styles.css
   js/engine.js     learning engine (SRS, sessions, MC, judging, streak)
   js/app.js        UI controller + screens
-  data/words.json  seed word set (~66 words; PENDING native-speaker proofread)
+  data/words.json  ~2435 words, CEFR-tagged A1–B2 (31 topics; native-speaker proofread still recommended)
   icons/           app icons
   manifest.webmanifest, sw.js   PWA bits
 tests/engine.test.js   headless logic tests:  node tests/engine.test.js
