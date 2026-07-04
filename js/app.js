@@ -163,7 +163,7 @@
         <div class="greeting">${greet} 👋</div>
         <div style="display:flex;gap:8px;align-items:center">
           <span class="level-pill">${S.user.level || 'A1'}</span>
-          <button class="streak-pill" id="settingsBtn" aria-label="Streak and settings">🔥 ${S.user.currentStreak}</button>
+          <button class="streak-pill" id="settingsBtn" aria-label="Streak and settings">🔥 ${W.displayStreak(S.user, W.todayStr())}</button>
         </div>
       </div>
       <h1 class="title">Today</h1>
@@ -281,16 +281,15 @@
 
   // ---------- SETTINGS ----------
   function renderSettings() {
+    const cs = W.displayStreak(S.user, W.todayStr());
     $app.innerHTML = `
       <div class="topbar"><button class="btn-ghost" id="back">‹ Today</button><span></span></div>
       <h1 class="title">You</h1>
       <div class="card">
         <div class="srow" style="display:flex;justify-content:space-between;padding:6px 0">
-          <span>🔥 Current streak</span><strong>${S.user.currentStreak} day${S.user.currentStreak === 1 ? '' : 's'}</strong></div>
+          <span>🔥 Current streak</span><strong>${cs} day${cs === 1 ? '' : 's'}</strong></div>
         <div class="srow" style="display:flex;justify-content:space-between;padding:6px 0">
           <span>Longest streak</span><strong>${S.user.longestStreak}</strong></div>
-        <div class="srow" style="display:flex;justify-content:space-between;padding:6px 0">
-          <span>Streak freeze</span><strong>${S.user.freezeAvailable ? 'Ready ❄️' : 'Earning…'}</strong></div>
       </div>
       <h2 class="section">Settings</h2>
       <div class="card">
@@ -773,7 +772,7 @@
           ${learnedHtml}
         </div>
         ${learnedNames}
-        <div class="streak-pill big celebrate">🔥 ${S.user.currentStreak}-day streak</div>
+        <div class="streak-pill big celebrate">🔥 ${W.displayStreak(S.user, W.todayStr())}-day streak</div>
         ${weekDots()}
         <p class="muted" style="margin-top:16px">${nextUp}</p>
         <button class="btn btn-primary" id="done" style="margin-top:16px">Done</button>
@@ -783,13 +782,15 @@
   }
 
   function weekDots() {
-    // show last 7 days; mark completed (approx: today on) — simple visual
+    // show last 7 days; light the days covered by the live (unbroken) streak
+    const today = W.todayStr();
+    const streak = W.displayStreak(S.user, today);
     let dots = '';
     for (let i = 6; i >= 0; i--) {
-      const d = W.addDays(S.today, -i);
+      const d = W.addDays(today, -i);
       const isToday = i === 0;
       const on = (S.user.lastCompletedDay && W.dayDiff(d, S.user.lastCompletedDay) >= 0 &&
-        W.dayDiff(d, S.user.lastCompletedDay) < S.user.currentStreak) || isToday;
+        W.dayDiff(d, S.user.lastCompletedDay) < streak) || isToday;
       dots += `<span class="dot ${on ? 'on' : ''} ${isToday ? 'today' : ''}"></span>`;
     }
     return `<div class="weekdots">${dots}</div>`;
@@ -824,7 +825,7 @@
         <div><div class="stat-big" style="color:var(--c-accent-text)">${totalProgress}</div><div class="muted">in progress</div></div>
         <div><div class="stat-big" style="color:var(--t-3)">${totalWords}</div><div class="muted">total</div></div>
       </div>
-      <p class="muted" style="margin:14px 2px 6px;font-size:.85rem">Tap a topic to expand 🔥 ${S.user.currentStreak}-day streak</p>
+      <p class="muted" style="margin:14px 2px 6px;font-size:.85rem">Tap a topic to expand 🔥 ${W.displayStreak(S.user, W.todayStr())}-day streak</p>
       ${sections || `<p class="muted" style="margin-top:16px">Start a session and your words will show up here. 🌱</p>`}`;
   }
 
