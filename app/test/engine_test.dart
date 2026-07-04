@@ -84,7 +84,7 @@ void main() {
     expect(judgeTyped('werkon', werken), 'WRONG'); // vowel change
   });
 
-  test('streak + freeze', () {
+  test('streak resets on any missed day', () {
     final u = UserState();
     updateStreak(u, '2026-06-01');
     expect(u.currentStreak, 1);
@@ -92,15 +92,25 @@ void main() {
     expect(u.currentStreak, 2);
     updateStreak(u, '2026-06-02');
     expect(u.currentStreak, 2);
-    updateStreak(u, '2026-06-04'); // 2-day gap, no freeze
+    updateStreak(u, '2026-06-04'); // 2-day gap
     expect(u.currentStreak, 1);
+    // a long streak does NOT survive a missed day (freeze removed)
     final u2 = UserState();
     for (var i = 0; i < 7; i++) updateStreak(u2, addDays('2026-07-01', i));
-    expect(u2.freezeAvailable, true);
     expect(u2.currentStreak, 7);
-    updateStreak(u2, addDays('2026-07-01', 8)); // skip 1 day -> freeze bridges
-    expect(u2.currentStreak, 8);
-    expect(u2.freezeAvailable, false);
+    updateStreak(u2, addDays('2026-07-01', 8)); // skip 1 day -> reset
+    expect(u2.currentStreak, 1);
+    expect(u2.longestStreak, 7); // longest preserved
+  });
+
+  test('displayStreak shows 0 for a broken streak', () {
+    final u = UserState();
+    updateStreak(u, '2026-08-10');
+    expect(displayStreak(u, '2026-08-10'), 1); // done today
+    expect(displayStreak(u, '2026-08-11'), 1); // done yesterday, grace period
+    expect(displayStreak(u, '2026-08-12'), 0); // one missed day
+    expect(displayStreak(u, '2026-08-20'), 0); // many missed days
+    expect(displayStreak(UserState(), '2026-08-10'), 0); // never completed
   });
 
   test('session caps + level + priority', () {
@@ -147,8 +157,7 @@ void main() {
     // a 2-day gap (no freeze) resets
     final u2 = UserState()
       ..currentStreak = 5
-      ..lastCompletedDay = '2026-06-21'
-      ..freezeAvailable = false;
+      ..lastCompletedDay = '2026-06-21';
     updateStreak(u2, '2026-06-24');
     expect(u2.currentStreak, 1);
   });

@@ -19,7 +19,6 @@ class C {
   static const int learnedMinBox = 5;
   static const int learnedMinDays = 3;
   static const int retryGapInSession = 3;
-  static const int freezeEarnDays = 7;
   static const int typoEditDistance = 1;
   // ---- adaptive placement (level check) ----
   static const int placementN = 6; // words per full level evaluation
@@ -183,17 +182,15 @@ class Wcard {
 }
 
 class UserState {
-  int currentStreak, longestStreak, daysSinceFreezeGranted, newCountToday;
+  int currentStreak, longestStreak, newCountToday;
   String? lastCompletedDay, level, lastNewDay;
-  bool freezeAvailable, hardModeEnabled, reminderOn, onboarded;
+  bool hardModeEnabled, reminderOn, onboarded;
   String reminderTime;
   List<int> priorityQueue;
   UserState({
     this.currentStreak = 0,
     this.longestStreak = 0,
     this.lastCompletedDay,
-    this.freezeAvailable = false,
-    this.daysSinceFreezeGranted = 0,
     this.hardModeEnabled = false,
     this.level,
     List<int>? priorityQueue,
@@ -207,8 +204,6 @@ class UserState {
         currentStreak: (j['currentStreak'] ?? 0) as int,
         longestStreak: (j['longestStreak'] ?? 0) as int,
         lastCompletedDay: j['lastCompletedDay'] as String?,
-        freezeAvailable: (j['freezeAvailable'] ?? false) as bool,
-        daysSinceFreezeGranted: (j['daysSinceFreezeGranted'] ?? 0) as int,
         hardModeEnabled: (j['hardModeEnabled'] ?? false) as bool,
         level: j['level'] as String?,
         priorityQueue: ((j['priorityQueue'] ?? []) as List).map((e) => e as int).toList(),
@@ -222,8 +217,6 @@ class UserState {
         'currentStreak': currentStreak,
         'longestStreak': longestStreak,
         'lastCompletedDay': lastCompletedDay,
-        'freezeAvailable': freezeAvailable,
-        'daysSinceFreezeGranted': daysSinceFreezeGranted,
         'hardModeEnabled': hardModeEnabled,
         'level': level,
         'priorityQueue': priorityQueue,
@@ -469,32 +462,26 @@ String judgeTyped(String typed, Word w) {
 }
 
 // ---- streak ----
-void _refillFreeze(UserState u) {
-  if (!u.freezeAvailable && u.daysSinceFreezeGranted >= C.freezeEarnDays) {
-    u.freezeAvailable = true;
-    u.daysSinceFreezeGranted = 0;
-  }
-}
-
 void updateStreak(UserState u, String today) {
-  if (u.lastCompletedDay == today) return;
+  if (u.lastCompletedDay == today) return; // already counted today
   if (u.lastCompletedDay == null) {
-    u.currentStreak = 1;
+    u.currentStreak = 1; // first ever completed day
+  } else if (dayDiff(u.lastCompletedDay!, today) == 1) {
+    u.currentStreak++; // consecutive day -> extend
   } else {
-    final gap = dayDiff(u.lastCompletedDay!, today);
-    if (gap == 1) {
-      u.currentStreak++;
-    } else if (gap == 2 && u.freezeAvailable) {
-      u.currentStreak++;
-      u.freezeAvailable = false;
-    } else {
-      u.currentStreak = 1;
-    }
+    u.currentStreak = 1; // any gap -> broken, restart at 1
   }
   u.lastCompletedDay = today;
   u.longestStreak = max(u.longestStreak, u.currentStreak);
-  u.daysSinceFreezeGranted++;
-  _refillFreeze(u);
+}
+
+// Streak to *display* as of [today]: a broken streak (a full day missed) reads as
+// 0 immediately, before the user practises again. Display-only, never mutates
+// state. gap 0 = done today; gap 1 = done yesterday, today still in progress.
+int displayStreak(UserState u, String today) {
+  if (u.lastCompletedDay == null) return 0;
+  if (dayDiff(u.lastCompletedDay!, today) >= 2) return 0;
+  return u.currentStreak;
 }
 
 int dueCount(List<Word> words, Map<int, Wcard> cards, String today) =>
