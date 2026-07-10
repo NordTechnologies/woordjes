@@ -1,7 +1,7 @@
 /* Woordjes v0 — UI controller. Wires engine.js to the screens in the Design Spec. */
 (function () {
   'use strict';
-  const BUILD = '2026-06-18.3';   // visible in Settings + console; bump on each deploy
+  const BUILD = '2026-07-10.1';   // visible in Settings + console; bump on each deploy
   try { console.log('Woordjes build', BUILD); } catch (e) {}
   const W = window.WJ;
   const $app = document.getElementById('app');
@@ -297,7 +297,11 @@
           <span>Your level<br><span class="muted" style="font-size:.8rem">New words come from here and up</span></span>
           <button class="btn btn-secondary" id="changeLevel" style="width:auto;padding:8px 16px;min-height:40px">${S.user.level || 'A1'} ›</button>
         </div>
-        <label style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-top:1px solid var(--c-border);padding-top:14px">
+        <button id="reeval" style="display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;background:none;border:none;border-top:1px solid var(--c-border);padding-top:14px;cursor:pointer;font-family:inherit;font-size:1rem;color:var(--t-1)">
+          <span>Reevaluate my level<br><span class="muted" style="font-size:.8rem">Retake the quick placement check</span></span>
+          <span style="color:var(--t-3);font-size:1.25rem">›</span>
+        </button>
+        <label style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-top:1px solid var(--c-border);padding-top:14px;margin-top:14px">
           <span>Hard mode (typing)<br><span class="muted" style="font-size:.8rem">Type the Dutch word once you know it well</span></span>
           <input type="checkbox" id="hardmode" ${S.user.hardModeEnabled ? 'checked' : ''} style="transform:scale(1.4)">
         </label>
@@ -310,11 +314,20 @@
           <input type="time" id="reminderTime" value="${S.user.reminderTime || '19:00'}" style="font-size:1rem;padding:6px 8px;border:1px solid var(--c-border);border-radius:8px;background:var(--c-surface);color:var(--t-1)">
         </div>
       </div>
+      <h2 class="section">About</h2>
+      <div class="card" style="padding:0">
+        <button id="about" style="display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;background:none;border:none;padding:16px 18px;cursor:pointer;font-family:inherit;font-size:1rem;color:var(--t-1)">
+          <span>About &amp; word levels<br><span class="muted" style="font-size:.8rem">How CEFR levels and learning limits work</span></span>
+          <span style="color:var(--t-3);font-size:1.25rem">›</span>
+        </button>
+      </div>
       <h2 class="section">Reset</h2>
       <button class="btn btn-secondary" id="reset">Reset all progress</button>
-      <p class="muted" style="font-size:.8rem;margin-top:16px">Woordjes v0 prototype · build ${BUILD}<br>words pending native-speaker proofread</p>`;
+      <p class="muted" style="font-size:.8rem;margin-top:16px">Woordjes · build ${BUILD}<br>words pending native-speaker proofread</p>`;
     document.getElementById('back').addEventListener('click', () => go('today'));
     document.getElementById('changeLevel').addEventListener('click', () => renderLevelPick(true));
+    document.getElementById('reeval').addEventListener('click', () => startPlacement(true));
+    document.getElementById('about').addEventListener('click', renderAbout);
     document.getElementById('hardmode').addEventListener('change', e => { S.user.hardModeEnabled = e.target.checked; save(); });
     const rem = document.getElementById('reminder');
     rem.addEventListener('change', async e => {
@@ -336,6 +349,38 @@
     document.getElementById('reset').addEventListener('click', () => {
       if (confirm('Reset all progress? This cannot be undone.')) { W.Store.reset(); S.cards = {}; S.user = W.Store.loadUser(); go('today'); }
     });
+  }
+
+  // ---------- ABOUT (word-level methodology + sources) ----------
+  // Mirrors the native app's Info/About screen so the web explains the same CEFR
+  // sourcing and learning limits. Copy + constants kept aligned with app/lib/main.dart.
+  function renderAbout() {
+    $nav.hidden = true; $app.classList.remove('training');
+    const maxBoxes = W.C.MAX_BOX + 1;
+    $app.innerHTML = `
+      <div class="topbar"><button class="btn-ghost" id="back">‹ Back</button><span></span></div>
+      <h1 class="title">About</h1>
+
+      <h2 class="section" style="margin-top:8px">How word levels are decided</h2>
+      <p class="secondary-text" style="line-height:1.55">Every word in Woordjes is tagged with a CEFR level (A1–B2). These levels are data-driven, not guessed: each word is placed at the level where it first appears with real frequency in graded Dutch-as-a-second-language texts. That keeps the levels honest for the inburgering exam (which targets A2/B1) and means your placement test and lessons start you in the right place.</p>
+
+      <h2 class="section">Source</h2>
+      <p class="secondary-text" style="line-height:1.55">Levels are derived from NT2Lex, a CEFR-graded frequency lexicon of Dutch as a foreign language, from the CEFRLex project (UCLouvain / CENTAL).</p>
+      <p style="margin-top:8px"><a href="https://cental.uclouvain.be/cefrlex/nt2lex/" target="_blank" rel="noopener" style="color:var(--c-accent-text);font-weight:600">cental.uclouvain.be/cefrlex/nt2lex ↗</a></p>
+
+      <h2 class="section">Paper</h2>
+      <p class="secondary-text" style="line-height:1.55">Tack, A., François, T., Desmet, P., &amp; Fairon, C. (2018). NT2Lex: A CEFR-Graded Lexical Resource for Dutch as a Foreign Language Linked to Open Dutch WordNet. In Proceedings of the 13th Workshop on Innovative Use of NLP for Building Educational Applications (BEA), ACL.</p>
+      <p style="margin-top:8px"><a href="https://aclanthology.org/W18-0514/" target="_blank" rel="noopener" style="color:var(--c-accent-text);font-weight:600">Read the paper (ACL Anthology) ↗</a></p>
+
+      <h2 class="section">How many words you learn at once</h2>
+      <p class="secondary-text" style="line-height:1.55">Woordjes introduces new words only when you have room. At most ${W.C.MAX_IN_PROGRESS} words can be "in progress" (started but not yet learned) at the same time. While you are at that limit, no new words are added — they wait until you finish some of the ones you are already learning, so you are never flooded and reviews stay manageable.</p>
+
+      <h2 class="section">When a word counts as learned</h2>
+      <p class="secondary-text" style="line-height:1.55">Under the hood, each word climbs a ${maxBoxes}-step spaced-repetition ladder: answer it correctly and it moves up (longer gap before you see it again); miss it and it drops back. A word becomes "learned" once you have answered it correctly on at least ${W.C.LEARNED_MIN_DAYS} different days and pushed it to box ${W.C.LEARNED_MIN_BOX} of ${maxBoxes}, with your most recent answer correct. Learned words leave your daily sessions and move to your 🏆 Learned list — though if you slip on one later, it can return to review.</p>
+
+      <p class="muted" style="font-size:.8rem;margin-top:24px;line-height:1.5">Word translations and grammar (de/het, plurals, verb forms) are generated and auto-checked, with a native-speaker review before public release.</p>`;
+    document.getElementById('back').addEventListener('click', renderSettings);
+    window.scrollTo(0, 0);
   }
 
   // ---------- ONBOARDING / LEVEL ----------
@@ -384,10 +429,10 @@
   // Adaptive staircase level check with a confirmation probe (see engine.js placementNext).
   // Climb level-by-level; a failed level isn't final until a 3-word probe of the level
   // above also fails. Fresh words every run, never repeated within a run.
-  function startPlacement() {
+  function startPlacement(reeval) {
     $nav.hidden = true; $app.classList.add('training');
     S.placement = { levelIdx: 0, mode: 'eval', batchWords: [], batchCorrect: 0,
-                    idxInBatch: 0, fallbackLevel: null, usedIds: new Set() };
+                    idxInBatch: 0, fallbackLevel: null, usedIds: new Set(), reeval: !!reeval };
     startBatch(0, 'eval');
   }
   function pickPlacementWords(level, count) {
@@ -482,19 +527,22 @@
     }));
   }
   function finishPlacement(level) {
+    const reeval = !!(S.placement && S.placement.reeval);
     S.user.level = level; S.user.onboarded = true; save();
-    renderLevelResult(level, true);
+    renderLevelResult(level, true, reeval);
   }
-  function renderLevelResult(level, fromTest) {
+  // reeval: the check was launched from Settings ("Reevaluate my level"), so return
+  // to Settings when done instead of dropping into a fresh learning session.
+  function renderLevelResult(level, fromTest, reeval) {
     $nav.hidden = true; $app.classList.remove('training');
     $app.innerHTML = `
       <div class="complete">
         <div class="emoji celebrate">🎯</div>
-        <h1>You're starting at ${level}</h1>
+        <h1>${reeval ? "You're now at" : "You're starting at"} ${level}</h1>
         <p class="secondary-text">${fromTest ? 'Based on your quick check. ' : ''}We'll suggest new words from <strong>${level}</strong> and up — change it anytime in settings.</p>
-        <button class="btn btn-primary" id="go" style="margin-top:22px">Start learning ▸</button>
+        <button class="btn btn-primary" id="go" style="margin-top:22px">${reeval ? 'Done' : 'Start learning ▸'}</button>
       </div>`;
-    document.getElementById('go').addEventListener('click', () => startSession());
+    document.getElementById('go').addEventListener('click', () => reeval ? renderSettings() : startSession());
   }
 
   // ---------- TRAINING SESSION ----------
